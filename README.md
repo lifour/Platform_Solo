@@ -17,21 +17,16 @@ npx serve src -l 3000
 # 若端口被占用，serve 会自动选择其它端口
 ```
 
-将仓库推送到 GitHub
+部署到 GitHub
 
-1. 在 https://github.com/new 创建一个新仓库（例如 `platform-solo`）。
-2. 在本地添加远程并推送（可选 ssh 或 https）：
+如果你希望将代码推送并使用 GitHub Pages 托管（本项目已配置 `deploy` 脚本指向 `https://github.com/lifour/Platform_Solo.git`），可按下列步骤操作：
 
-SSH:
 ```bash
-git remote add origin git@github.com:YOUR_USERNAME/REPO_NAME.git
-git push -u origin master
-```
+# 添加远程仓库（如果尚未添加）
+git remote add origin https://github.com/lifour/Platform_Solo.git
+git branch -M main
+git push -u origin main
 
-HTTPS:
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
-git push -u origin master
+# 发布到 GitHub Pages
+npm run deploy
 ```
-
-如果你希望我也为你在 GitHub 上创建仓库（需要提供一个 GitHub personal access token），告诉我即可。
