@@ -6,7 +6,7 @@
   "scripts": {
     "parse": "node scripts/parse_cbeta.js",
     "dev": "npx serve .",
-    "deploy": "gh-pages -d . -r git@github.com:lifour/Platform_Solo.git",
+    "deploy": "gh-pages -d . -r https://github.com/lifour/Platform_Solo.git",
     "deploy:gitee": "gh-pages -d src -r https://gitee.com/lifour/Platform_Solo.git"
   },
   "devDependencies": {
