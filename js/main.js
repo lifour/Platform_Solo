@@ -63,6 +63,9 @@ async function init() {
       glossaryMap[t.term] = { pinyin: t.pinyin, meaning: t.meaning };
     });
 
+    // initialize UI prefs (display mode, compare mode) before first render
+    initDisplayMode();
+    initCompareMode();
     render();
     setupScroll();
     setupNavigation();
@@ -75,6 +78,33 @@ async function init() {
       '<div class="loading">经文加载失败，请检查 data/ 目录</div>';
   }
 }
+
+// display mode: 'scroll' or 'paged'
+let displayMode = 'scroll';
+
+function applyDisplayMode(mode) {
+  displayMode = mode === 'paged' ? 'paged' : 'scroll';
+  document.body.classList.toggle('mode-scroll', displayMode === 'scroll');
+  document.body.classList.toggle('mode-paged', displayMode === 'paged');
+  try { localStorage.setItem('ui_display_mode', displayMode); } catch(e){}
+}
+
+function initDisplayMode() {
+  try { const stored = localStorage.getItem('ui_display_mode'); if (stored) displayMode = stored; } catch(e){}
+  applyDisplayMode(displayMode || 'scroll');
+}
+
+// compare mode init/apply
+function applyCompareMode(enabled) {
+  compareMode = !!enabled;
+  try { localStorage.setItem('ui_compare_mode', compareMode ? '1' : '0'); } catch(e){}
+  const cb = document.getElementById('compare-btn'); if (cb) cb.classList.toggle('active', compareMode);
+}
+
+function initCompareMode() {
+  try { const stored = localStorage.getItem('ui_compare_mode'); if (stored !== null) compareMode = (stored === '1' || stored === 'true'); } catch(e){}
+}
+
 
 // ---- 渲染经折装 ----
 function render() {
@@ -192,6 +222,24 @@ function renderNormalMode(container, select, termPattern) {
     opt.value = chapter.id;
     opt.textContent = chapter.title;
     select.appendChild(opt);
+    // 同步填充移动端目录列表（若存在）
+    const mobileList = document.getElementById('mobile-chapter-list');
+    if (mobileList) {
+      const li = document.createElement('li');
+      li.className = 'mobile-chapter-item';
+      li.dataset.target = chapter.id;
+      li.textContent = chapter.title;
+      li.addEventListener('click', () => {
+        const tgt = document.getElementById(chapter.id);
+        if (tgt) {
+          tgt.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        }
+      const sp = document.getElementById('side-panel'); if (sp) { sp.classList.remove('open'); sp.hidden = true; }
+      const overlay = document.getElementById('panel-overlay'); if (overlay) overlay.hidden = true;
+      const sh = document.getElementById('side-handle'); if (sh) sh.hidden = false;
+      });
+      mobileList.appendChild(li);
+    }
 
     // 创建章节首折，放入所有段落
     const fold = document.createElement('div');
@@ -248,6 +296,22 @@ function renderCompareMode(container, select, termPattern) {
     opt.value = zbChapter.id;
     opt.textContent = zbChapter.title;
     select.appendChild(opt);
+    // 同步填充移动端目录列表（若存在）
+    const mobileList = document.getElementById('mobile-chapter-list');
+    if (mobileList) {
+      const li = document.createElement('li');
+      li.className = 'mobile-chapter-item';
+      li.dataset.target = zbChapter.id;
+      li.textContent = zbChapter.title;
+      li.addEventListener('click', () => {
+        const tgt = document.getElementById(zbChapter.id);
+        if (tgt) tgt.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        const sp = document.getElementById('side-panel'); if (sp) { sp.classList.remove('open'); sp.hidden = true; }
+        const overlay = document.getElementById('panel-overlay'); if (overlay) overlay.hidden = true;
+        const sh = document.getElementById('side-handle'); if (sh) sh.hidden = false;
+      });
+      mobileList.appendChild(li);
+    }
 
     const dhChapter = dhChapters[zbChapter.id];
 
@@ -389,6 +453,7 @@ function splitSentences(text, maxLen) {
  * DOM 回流分页：根据实际页面高度把溢出内容移到新折页
  */
 function reflowFolds() {
+  if (displayMode === 'scroll') return; // in scroll mode, don't paginate into folds
   const container = document.querySelector('.scroll-container');
 
   if (compareMode) {
@@ -587,7 +652,7 @@ function setupScroll() {
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     e.preventDefault();
     if (isFlipping) return;
-    flipPage(e.deltaY > 0 ? 1 : -1);
+    if (displayMode === 'paged') flipPage(e.deltaY > 0 ? 1 : -1);
   }, { passive: false });
 
   // 键盘左右箭头翻页（搜索面板开启时跳过）
@@ -595,20 +660,79 @@ function setupScroll() {
     const searchOpen = document.getElementById('search-panel') && !document.getElementById('search-panel').hidden;
     if (searchOpen) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      e.preventDefault(); flipPage(1);
+      if (displayMode === 'paged') { e.preventDefault(); flipPage(1); }
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      e.preventDefault(); flipPage(-1);
+      if (displayMode === 'paged') { e.preventDefault(); flipPage(-1); }
     }
   });
 
-  // 点击左右边缘翻页（避免干扰术语点击）
+    // 点击左右边缘翻页（避免干扰术语点击）
   container.addEventListener('click', e => {
     if (e.target.closest('.term')) return;
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x < rect.width * 0.15) flipPage(-1);
-    else if (x > rect.width * 0.85) flipPage(1);
+    const w = rect.width;
+    // 左/右边缘点击翻页
+      if (displayMode === 'paged') {
+        if (x < w * 0.15) flipPage(-1);
+        else if (x > w * 0.85) flipPage(1);
+      }
   });
+
+  // Touch gestures: detect horizontal swipes for flip, and center tap to open side-panel
+  let _touchStartX = 0, _touchStartY = 0, _touchStartTime = 0, _touchMoved = false;
+  container.addEventListener('touchstart', (ev) => {
+    if (!ev.touches || ev.touches.length !== 1) return;
+    _touchStartX = ev.touches[0].clientX;
+    _touchStartY = ev.touches[0].clientY;
+    _touchStartTime = Date.now();
+    _touchMoved = false;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (ev) => {
+    if (!ev.touches || ev.touches.length !== 1) return;
+    const dx = ev.touches[0].clientX - _touchStartX;
+    const dy = ev.touches[0].clientY - _touchStartY;
+    if (Math.abs(dx) > 10) _touchMoved = true;
+  }, { passive: true });
+
+  container.addEventListener('touchend', (ev) => {
+    const touch = (ev.changedTouches && ev.changedTouches[0]) || null;
+    if (!touch) return;
+    const dx = touch.clientX - _touchStartX;
+    const dy = touch.clientY - _touchStartY;
+    const dt = Date.now() - _touchStartTime;
+    const rect = container.getBoundingClientRect();
+    const startX = _touchStartX - rect.left;
+    const w = rect.width;
+
+    // 快速水平滑动视为翻页（限定水平位移和倾向）
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) && dt < 700) {
+      // 如果起点在右侧区域，则右侧滑动控制翻页
+      if (startX > w * 0.6) {
+        if (displayMode === 'paged') flipPage(dx < 0 ? 1 : -1);
+      } else if (startX < w * 0.4) {
+        if (displayMode === 'paged') flipPage(dx > 0 ? -1 : 1);
+      }
+      return;
+    }
+
+    // 左侧边缘向右的快速滑动：打开侧边面板（移动端，避免中间误触）
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) && dt < 700) {
+      if (startX < w * 0.12 && dx > 0 && window.innerWidth <= 640) {
+        const sp = document.getElementById('side-panel');
+        if (sp) { sp.hidden = false; sp.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; const sh = document.getElementById('side-handle'); if (sh) sh.hidden = true; }
+        return;
+      }
+      // 如果起点在右侧区域，则右侧滑动控制翻页
+      if (startX > w * 0.6) {
+        if (displayMode === 'paged') flipPage(dx < 0 ? 1 : -1);
+      } else if (startX < w * 0.4) {
+        if (displayMode === 'paged') flipPage(dx > 0 ? -1 : 1);
+      }
+      return;
+    }
+  }, { passive: true });
 
   // 更新进度
   container.addEventListener('scroll', () => {
@@ -832,15 +956,119 @@ function setupSearch() {
   const closeBtn = document.getElementById('search-close');
   const resultsList = document.getElementById('search-results');
   const countLabel = document.getElementById('search-count');
+  const settingsBtn = document.getElementById('search-settings-btn');
+  const topSettingsBtn = document.getElementById('top-search-settings');
+  const settingsPanel = document.getElementById('settings-panel');
+  const settingsBack = document.getElementById('settings-back');
+  const fontSizeRange = document.getElementById('font-size-range');
+  const fontSizeDecr = document.getElementById('font-size-decr');
+  const fontSizeIncr = document.getElementById('font-size-incr');
+  const fontSizeValue = document.getElementById('font-size-value');
+  const fontSelect = document.getElementById('font-select');
+  const lineHeightRange = document.getElementById('line-height-range');
+  const lineHeightDecr = document.getElementById('line-height-decr');
+  const lineHeightIncr = document.getElementById('line-height-incr');
+  const lineHeightValue = document.getElementById('line-height-value');
+  const settingsReset = document.getElementById('settings-reset');
+
+  // Mobile side-panel elements (may be absent on desktop)
+  const mobilePanel = document.getElementById('side-panel');
+  const mobileChapterList = document.getElementById('mobile-chapter-list');
+  const mobileInput = document.getElementById('mobile-search-input');
+  const mobileResults = document.getElementById('mobile-search-results');
+  const mobileCount = document.getElementById('mobile-search-count');
+  const sideClose = document.getElementById('side-panel-close');
+  const panelOverlay = document.getElementById('panel-overlay');
 
   let debounceTimer = null;
 
+  // Settings defaults
+  const DEFAULT_FONT_PX = 18;
+  const DEFAULT_LINE_HEIGHT = 2;
+
+  function applySettings(fontPx, lineHeight) {
+    document.documentElement.style.setProperty('--base-font-size', fontPx + 'px');
+    document.documentElement.style.setProperty('--base-line-height', lineHeight);
+    // ensure body/font stacks update immediately
+    const currentFont = getComputedStyle(document.documentElement).getPropertyValue('--font-main').trim();
+    document.documentElement.style.setProperty('--font-main', currentFont);
+    try { localStorage.setItem('ui_font_px', fontPx.toString()); localStorage.setItem('ui_line_height', lineHeight.toString()); } catch(e){}
+    if (fontSizeValue) fontSizeValue.textContent = fontPx + 'px';
+    if (lineHeightValue) lineHeightValue.textContent = lineHeight.toFixed(2);
+    if (fontSizeRange) fontSizeRange.value = fontPx;
+    if (lineHeightRange) lineHeightRange.value = lineHeight;
+  }
+
+  // initialize from storage
+  (function initSettings() {
+    let f = DEFAULT_FONT_PX, lh = DEFAULT_LINE_HEIGHT;
+    try { const sf = localStorage.getItem('ui_font_px'); const sl = localStorage.getItem('ui_line_height'); if (sf) f = parseInt(sf,10); if (sl) lh = parseFloat(sl); } catch(e){}
+    applySettings(f, lh);
+  })();
+
+  // initialize display mode and wire selector
+  initDisplayMode();
+  const displaySelect = document.getElementById('display-mode-select');
+  if (displaySelect) {
+    displaySelect.value = displayMode;
+    displaySelect.addEventListener('change', () => applyDisplayMode(displaySelect.value));
+  }
+
+  // compare mode checkbox in settings
+  const compareCheckbox = document.getElementById('setting-compare-mode');
+  if (compareCheckbox) {
+    // initialize checkbox from current compareMode
+    compareCheckbox.checked = !!compareMode;
+    compareCheckbox.addEventListener('change', () => {
+      applyCompareMode(compareCheckbox.checked);
+      rerender();
+    });
+  }
+  // font selector wiring
+  try {
+    const storedFont = localStorage.getItem('ui_font_family');
+    if (fontSelect) {
+      if (storedFont) fontSelect.value = storedFont;
+      fontSelect.addEventListener('change', () => {
+        const val = fontSelect.value;
+        document.documentElement.style.setProperty('--font-main', val);
+        try { localStorage.setItem('ui_font_family', val); } catch(e){}
+      });
+      // apply stored value on init
+      if (storedFont) document.documentElement.style.setProperty('--font-main', storedFont);
+    }
+  } catch(e) {}
+
+  // settings UI wiring
+  if (settingsBtn) settingsBtn.addEventListener('click', () => { if (settingsPanel) settingsPanel.hidden = false; settingsPanel.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; });
+  // mobile side-panel no longer has a separate settings button
+  if (settingsBack) settingsBack.addEventListener('click', () => { if (settingsPanel) { settingsPanel.hidden = true; settingsPanel.classList.remove('open'); } if (panelOverlay) panelOverlay.hidden = true; });
+
+  if (fontSizeRange) {
+    fontSizeRange.addEventListener('input', () => applySettings(parseInt(fontSizeRange.value,10), parseFloat(lineHeightRange.value||DEFAULT_LINE_HEIGHT)));
+  }
+  if (lineHeightRange) {
+    lineHeightRange.addEventListener('input', () => applySettings(parseInt(fontSizeRange.value||DEFAULT_FONT_PX,10), parseFloat(lineHeightRange.value)));
+  }
+  if (fontSizeDecr) fontSizeDecr.addEventListener('click', () => { const v = Math.max(12, parseInt(fontSizeRange.value||DEFAULT_FONT_PX,10)-1); applySettings(v, parseFloat(lineHeightRange.value||DEFAULT_LINE_HEIGHT)); });
+  if (fontSizeIncr) fontSizeIncr.addEventListener('click', () => { const v = Math.min(28, parseInt(fontSizeRange.value||DEFAULT_FONT_PX,10)+1); applySettings(v, parseFloat(lineHeightRange.value||DEFAULT_LINE_HEIGHT)); });
+  if (lineHeightDecr) lineHeightDecr.addEventListener('click', () => { const v = Math.max(1, parseFloat(lineHeightRange.value||DEFAULT_LINE_HEIGHT)-0.05); applySettings(parseInt(fontSizeRange.value||DEFAULT_FONT_PX,10), parseFloat(v.toFixed(2))); });
+  if (lineHeightIncr) lineHeightIncr.addEventListener('click', () => { const v = Math.min(2.6, parseFloat(lineHeightRange.value||DEFAULT_LINE_HEIGHT)+0.05); applySettings(parseInt(fontSizeRange.value||DEFAULT_FONT_PX,10), parseFloat(v.toFixed(2))); });
+  if (settingsReset) settingsReset.addEventListener('click', () => { applySettings(DEFAULT_FONT_PX, DEFAULT_LINE_HEIGHT); });
+
+  if (topSettingsBtn) topSettingsBtn.addEventListener('click', () => { if (settingsPanel) settingsPanel.hidden = false; settingsPanel.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; });
+
   function openPanel() {
     panel.hidden = false;
+    panel.classList.add('open');
+    // show overlay to block main interactions
+    if (panelOverlay) { panelOverlay.hidden = false; }
     input.focus();
   }
   function closePanel() {
     panel.hidden = true;
+    panel.classList.remove('open');
+    if (panelOverlay) { panelOverlay.hidden = true; }
     clearSearchHighlights();
   }
 
@@ -866,10 +1094,51 @@ function setupSearch() {
     debounceTimer = setTimeout(() => doSearch(input.value.trim()), 150);
   });
 
+  // Topbar inline search mirrors full search panel
+  const topInline = document.getElementById('top-search-inline');
+  if (topInline) {
+    topInline.addEventListener('input', () => {
+      openPanel();
+      input.value = topInline.value;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => doSearch(input.value.trim()), 150);
+    });
+  }
+
+  // Mobile input mirrors desktop search
+  if (mobileInput) {
+    mobileInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        doSearch(mobileInput.value.trim());
+        // sync mobile result list and show overlayed results area
+        if (mobileResults) {
+          mobileResults.innerHTML = resultsList.innerHTML;
+          mobileCount.textContent = countLabel.textContent;
+          mobileResults.classList.add('visible');
+          // attach click handlers that read data-payload
+          mobileResults.querySelectorAll('li').forEach(li => {
+            li.addEventListener('click', () => {
+              const payload = li.getAttribute('data-payload');
+              if (!payload) return;
+              try { const r = JSON.parse(decodeURIComponent(payload)); navigateToResult(r); } catch(e){}
+              if (mobilePanel) { mobilePanel.classList.remove('open'); mobilePanel.hidden = true; if (panelOverlay) panelOverlay.hidden = true; }
+              const sh = document.getElementById('side-handle'); if (sh) sh.hidden = false;
+            });
+          });
+        }
+      }, 150);
+    });
+  }
+
   function doSearch(query) {
     resultsList.innerHTML = '';
     countLabel.textContent = '';
-    if (!query) return;
+    if (!query) {
+      // hide mobile overlay results when query cleared
+      if (mobileResults) { mobileResults.innerHTML = ''; mobileResults.classList.remove('visible'); mobileCount.textContent = ''; }
+      return;
+    }
 
     // 简体自动转繁体
     const tQuery = toTraditional(query);
@@ -920,9 +1189,67 @@ function setupSearch() {
       li.innerHTML =
         `<div class="result-chapter">${escapeHtml(r.chapterTitle)}${edLabel}</div>` +
         `<div>${escapeHtml(r.before)}<mark>${escapeHtml(r.match)}</mark>${escapeHtml(r.after)}</div>`;
+      // attach desktop click handler
       li.addEventListener('click', () => navigateToResult(r));
+      // store payload for cloned mobile list
+      try { li.setAttribute('data-payload', encodeURIComponent(JSON.stringify(r))); } catch(e){}
       resultsList.appendChild(li);
     });
+
+    // sync to mobile panel if present
+    if (mobileResults) {
+      mobileResults.innerHTML = resultsList.innerHTML;
+      mobileCount.textContent = countLabel.textContent;
+      mobileResults.classList.add('visible');
+      mobileResults.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', () => {
+          const payload = li.getAttribute('data-payload');
+          if (!payload) return;
+          try { const r = JSON.parse(decodeURIComponent(payload)); navigateToResult(r); } catch(e){}
+          if (mobilePanel) { mobilePanel.classList.remove('open'); mobilePanel.hidden = true; if (panelOverlay) panelOverlay.hidden = true; }
+          const sh = document.getElementById('side-handle'); if (sh) sh.hidden = false;
+        });
+      });
+    }
+  }
+
+  // mobile side-panel close
+  if (sideClose && mobilePanel) {
+    sideClose.addEventListener('click', () => {
+      mobilePanel.classList.remove('open');
+      mobilePanel.hidden = true;
+      if (panelOverlay) panelOverlay.hidden = true;
+      const sh = document.getElementById('side-handle'); if (sh) sh.hidden = false;
+      try { if (mobileInput) mobileInput.blur(); } catch(e){}
+      // ensure any soft keyboard or focused element is cleared so scrolling restores
+      setTimeout(() => { try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch(e){} }, 60);
+    });
+  }
+
+  // overlay click closes panel
+  if (panelOverlay) {
+    panelOverlay.addEventListener('click', () => {
+      if (mobilePanel) { mobilePanel.classList.remove('open'); mobilePanel.hidden = true; }
+      panelOverlay.hidden = true;
+      const sh = document.getElementById('side-handle'); if (sh) sh.hidden = false;
+      try { if (mobileInput) mobileInput.blur(); } catch(e){}
+      setTimeout(() => { try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch(e){} }, 60);
+    });
+    // prevent touch events from reaching main content while visible
+    panelOverlay.addEventListener('touchstart', (e)=>{ e.preventDefault(); }, { passive: false });
+  }
+
+  // side-handle open (mobile reliable opener)
+  const sideHandleEl = document.getElementById('side-handle');
+  if (sideHandleEl) {
+    // show handle on mobile
+    sideHandleEl.hidden = false;
+    sideHandleEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (mobilePanel) { mobilePanel.hidden = false; mobilePanel.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; }
+      sideHandleEl.hidden = true;
+    });
+    sideHandleEl.addEventListener('touchstart', (e)=>{ e.preventDefault(); if (mobilePanel) { mobilePanel.hidden = false; mobilePanel.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; } sideHandleEl.hidden = true; }, { passive: false });
   }
 
   function navigateToResult(result) {

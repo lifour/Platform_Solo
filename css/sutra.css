@@ -13,12 +13,14 @@
   --fold-line: rgba(180, 165, 140, 0.35);
   --shadow-soft: rgba(62, 46, 35, 0.08);
   --font-main: 'LXGW WenKai', 'Kaiti SC', 'KaiTi', 'STKaiti', serif;
+  --base-font-size: 18px;
+  --base-line-height: 2;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
-  font-size: 18px;
+  font-size: var(--base-font-size);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -26,7 +28,7 @@ body {
   background: var(--paper-bg);
   color: var(--ink-main);
   font-family: var(--font-main);
-  line-height: 2;
+  line-height: var(--base-line-height);
   letter-spacing: 0.08em;
   overflow: hidden;
   height: 100vh;
@@ -57,6 +59,11 @@ body {
   letter-spacing: 0.25em;
   user-select: none;
 }
+
+
+/* Ensure hidden compare button remains non-visible */
+#compare-btn[hidden] { display: none !important; visibility: hidden !important; }
+
 
 .topbar-nav {
   display: flex;
@@ -104,6 +111,15 @@ body {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+/* When in scroll mode, stack folds vertically and allow natural scrolling */
+.mode-scroll .scroll-container {
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: none;
+}
+.mode-scroll .fold { width: 100%; height: auto; padding: 1rem 1.2rem; overflow: visible; }
 .scroll-container::-webkit-scrollbar {
   display: none;
 }
@@ -258,12 +274,101 @@ body {
 
 /* ---- 响应式 ---- */
 @media (max-width: 480px) {
-  html { font-size: 16px; }
+  /* Keep font size driven by the CSS variable so settings apply on small screens */
+  html { font-size: var(--base-font-size); }
   .fold {
     padding: 1.5rem 1.2rem 2rem;
   }
   .topbar { padding: 0.4rem 0.8rem; }
   .chapter-title { font-size: 1.15rem; }
+}
+
+/* Mobile tweaks for pinyin mode: reduce spacing and allow vertical scrolling */
+@media (max-width: 480px) {
+  /* allow vertical scrolling within a fold on small screens */
+  .fold {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* reduce overall line-height for pinyin mode to avoid excessive gaps */
+  .pinyin-mode .para {
+    line-height: 1.9;
+    font-size: 0.95rem;
+  }
+
+  /* slightly larger but compact rt (pinyin) on narrow screens */
+  .pinyin-mode rt {
+    font-size: 0.48em;
+    opacity: 0.85;
+  }
+
+  /* tighten global spacing for better fit */
+  body {
+    line-height: 1.85;
+    letter-spacing: 0.04em;
+    height: auto;
+    overflow: auto;
+  }
+}
+
+/* Convert horizontal pager to vertical flow on small narrow screens */
+@media (max-width: 480px) {
+  /* keep horizontal pager behaviour on phones so flipPage works */
+  .scroll-container {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+  }
+
+  /* make each fold fill viewport width but allow vertical scrolling inside */
+  .fold {
+    flex: 0 0 100%;
+    width: 100%;
+    height: calc(100vh - 3.6rem); /* reserve space for topbar and progress */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-align: start;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* compact topbar: hide select and reduce some controls to icons */
+  .topbar-nav select { display: none; }
+  .topbar-progress { display: none; }
+  .topbar-btn { padding: 0.15rem 0.35rem; font-size: 0.85rem; }
+
+  /* reduce paragraph indent on small screens for better wrapping */
+  .para { text-indent: 0.9em; margin-bottom: 0.85em; }
+}
+
+/* Prevent topbar title wrapping and compress controls on very narrow screens */
+@media (max-width: 480px) {
+  .topbar-title {
+    font-size: 0.98rem;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 46%;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .topbar-nav {
+    gap: 0.25rem;
+    align-items: center;
+    display: flex;
+  }
+
+  .topbar-btn {
+    padding: 0.12rem 0.32rem;
+    font-size: 0.82rem;
+  }
+
+  /* allow nav to shrink and keep title visible */
+  .topbar-nav > * { flex-shrink: 0; }
 }
 
 @media (min-width: 1200px) {
@@ -380,6 +485,159 @@ mark.search-highlight {
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* ---- 侧边面板（移动端） ---- */
+.side-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 33.333vw; /* occupy one third of viewport width on mobile */
+  max-width: 420px;
+  min-width: 260px;
+  background: linear-gradient(180deg, #FBF8F2 0%, var(--paper-bg) 100%);
+  box-shadow: 8px 0 24px rgba(62,46,35,0.12);
+  z-index: 900;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+.side-panel[hidden] { display: none; }
+.side-panel.open { transform: translateX(0); }
+.side-panel-header { display:flex; align-items:center; justify-content:space-between; padding:0.8rem 1rem; border-bottom:1px solid var(--paper-edge); }
+.side-panel-title { font-weight:600; color:var(--accent-gold); }
+.side-panel-header .topbar-btn { display: inline-flex; font-size: 1rem; padding: 0.36rem 0.6rem; z-index: 920; }
+.side-panel-body { padding:0.8rem 1rem; overflow:auto; }
+.sr-only { position:absolute; left:-9999px; }
+.mobile-search-row { display:flex; gap:0.5rem; align-items:center; margin-top:0.6rem; margin-bottom:0.6rem; }
+.mobile-search-row input { flex:1; padding:0.5rem; border:1px solid var(--paper-edge); border-radius:4px; font-family:var(--font-main); box-sizing: border-box; width:100%; }
+.mobile-search-row .search-count { font-size:0.75rem; color:var(--ink-light); }
+.side-panel .search-results { max-height:60vh; overflow:auto; }
+.side-panel .search-results li { padding:0.5rem 0; }
+
+/* Mobile chapter list styles */
+.mobile-chapter-list { list-style: none; padding: 0; margin: 0.25rem 0 0 0; max-height: 60vh; overflow:auto; }
+.mobile-chapter-item { padding: 0.6rem 0.5rem; border-bottom: 1px solid rgba(216,200,176,0.4); cursor: pointer; font-size: 0.95rem; }
+.mobile-chapter-item:hover { background: var(--comment-bg); }
+.mobile-chapter-heading { font-size: 0.85rem; color: var(--accent-gold); margin-bottom: 0.25rem; }
+
+/* Panel overlay to block interactions with main content when side-panel open */
+.panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.0); /* transparent but captures events */
+  z-index: 850;
+}
+
+/* Ensure the overlay respects the hidden attribute and doesn't block touches when hidden */
+.panel-overlay[hidden] { display: none; pointer-events: none; }
+.panel-overlay { pointer-events: auto; }
+
+/* Settings panel — polished */
+.settings-panel {
+  position: fixed;
+  right: 5%;
+  top: 4.8rem;
+  width: min(640px, 92%);
+  max-width: 720px;
+  background: linear-gradient(180deg, #FBF8F2 0%, var(--paper-bg) 100%);
+  border: 1px solid var(--paper-edge);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(62,46,35,0.12);
+  z-index: 1200;
+  overflow: hidden;
+}
+.settings-header {
+  display:flex; align-items:center; gap:0.6rem; padding:0.8rem 1rem; border-bottom:1px solid rgba(216,200,176,0.6);
+  background: linear-gradient(180deg,#F7F3E8 0%, rgba(255,255,255,0.4) 100%);
+}
+.settings-title { font-weight:700; color:var(--accent-gold); font-size:1.05rem; }
+.settings-body { padding:1rem 1.1rem 1.2rem; display:flex; flex-direction:column; gap:1rem; }
+.setting-row { display:flex; align-items:center; gap:1rem; }
+.setting-row label { width:5.2rem; color:var(--ink-light); font-size:0.95rem; line-height:1.2; }
+.setting-control { flex:1; display:flex; align-items:center; gap:0.6rem; }
+.small-btn { width:36px; height:36px; border-radius:8px; border:1px solid var(--paper-edge); background:transparent; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.1rem; color:var(--ink-main); }
+.small-btn:hover { border-color:var(--accent-gold); color:var(--accent-gold); }
+.setting-value { min-width:3.6rem; text-align:right; color:var(--ink-main); }
+.setting-actions { text-align:right; margin-top:0.6rem; }
+
+/* Range styling */
+input[type="range"] { -webkit-appearance: none; appearance: none; height: 10px; background: rgba(216,200,176,0.45); border-radius:999px; width:100%; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width:20px; height:20px; border-radius:50%; background:#0b7cff; box-shadow:0 6px 14px rgba(11,124,255,0.18); border:3px solid #fff; margin-top: -6px; }
+input[type="range"]::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#0b7cff; border:3px solid #fff; }
+
+/* Checkbox label styling */
+.checkbox-label { display:flex; align-items:center; gap:0.6rem; color:var(--ink-main); }
+.checkbox-label input[type="checkbox"] { width:18px; height:18px; }
+
+/* Responsive: settings panel fills width on small screens */
+@media (max-width: 680px) {
+  .settings-panel { left: 4%; right: 4%; top: 3.2rem; width: auto; max-width: none; border-radius: 10px; }
+  .setting-row { align-items:flex-start; }
+  .setting-row label { width: 5.6rem; }
+}
+
+/* left side handle for mobile: visible small tab to reliably open panel */
+.side-handle {
+  /* default: hidden; shown on small screens or when placed in topbar */
+  display: none;
+  cursor: pointer;
+}
+.side-handle::after {
+  content: '\2630';
+  display: block;
+  text-align: center;
+  color: var(--ink-muted);
+}
+
+/* When placed inside the topbar, render as a compact button left of the title */
+.topbar .side-handle {
+  display: inline-block;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  margin-right: 0.6rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  box-shadow: none;
+  vertical-align: middle;
+}
+.topbar .side-handle::after { line-height: 36px; font-size: 18px; }
+
+@media (max-width: 640px) {
+  /* ensure visible on small screens */
+  .topbar .side-handle { display: inline-block; }
+}
+
+/* Make the side-panel body relative so results can be absolutely positioned */
+.side-panel .side-panel-body { position: relative; display: flex; flex-direction: column; }
+
+/* Mobile search results overlay: limited height so it doesn't fully cover the chapter list */
+#mobile-search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--search-row-height, 3.6rem)); /* below search row */
+  max-height: 38vh; /* smaller so chapter list remains largely visible */
+  overflow: auto;
+  background: linear-gradient(180deg, rgba(251,248,242,0.98), rgba(251,248,242,0.98));
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  display: none;
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid rgba(216,200,176,0.06);
+  z-index: 910;
+}
+
+#mobile-search-results.visible { display: block; }
+
+/* Ensure chapter list fills remaining panel height and is independently scrollable */
+.mobile-chapter-section { flex: 1 1 auto; overflow: auto; padding-bottom: 0.5rem; }
+.mobile-chapter-list { white-space: normal; }
 
 /* ---- 对照模式（双栏） ---- */
 .fold.compare-mode {
