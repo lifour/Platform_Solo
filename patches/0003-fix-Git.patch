@@ -1,0 +1,26 @@
+From 6b2d1a90df9cbfc46760519cd7696c443c8feef1 Mon Sep 17 00:00:00 2001
+From: RepoUser <repo@example.com>
+Date: Sun, 19 Apr 2026 16:21:35 +0800
+Subject: [PATCH 3/3] =?UTF-8?q?fix:=20=E6=9B=B4=E6=96=B0Git=E9=82=AE?=
+ =?UTF-8?q?=E7=AE=B1=E9=85=8D=E7=BD=AE?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .gitignore | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index da57def..82345ee 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,3 +2,5 @@ node_modules/
+ raw/
+ .DS_Store
+ Thumbs.db
++.vercel
++.env*.local
+-- 
+2.35.1.windows.2
+

@@ -1,0 +1,70 @@
+From 7e2388044225bfb702c8769cffc0f8983b0b6454 Mon Sep 17 00:00:00 2001
+From: RepoUser <repo@example.com>
+Date: Sun, 19 Apr 2026 16:19:33 +0800
+Subject: [PATCH 2/3] Switch to Vercel-only deployment: remove gh-pages
+ scripts/dependency and update docs
+
+---
+ README.md               | 4 ++--
+ README_platform_solo.md | 4 +++-
+ package.json            | 5 ++---
+ 3 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/README.md b/README.md
+index b1e7872..1cc1873 100644
+--- a/README.md
++++ b/README.md
+@@ -33,13 +33,13 @@ npm run deploy
+ 
+ Vercel 自动部署（已连接）
+ 
+-如果项目已连接到 Vercel，则后续在 VS Code 修改代码并推送后，Vercel 会自动重新部署。示例提交命令：
++如果项目已连接到 Vercel，则在 VS Code 修改并推送后，Vercel 会自动重新部署：
+ 
+ ```bash
+ git add . && git commit -m "修了一个bug" && git push
+ ```
+ 
+-无需手动管理服务器或运行 `npm run deploy`（除非你仍想使用 gh-pages）。
++说明：项目已移除 `gh-pages` 自动部署配置并推荐使用 Vercel。若需保留 gh-pages 可恢复相关脚本与依赖，但当前首选 Vercel。 
+ 六祖坛经 · 阅藏
+ 
+ 本仓库为本地静态站点项目，提供经文阅读器（宗宝本 + 敦煌本对照），支持拼音注音切换、全文搜索与术语工具提示。
+diff --git a/README_platform_solo.md b/README_platform_solo.md
+index 88d72ad..61faba3 100644
+--- a/README_platform_solo.md
++++ b/README_platform_solo.md
+@@ -25,4 +25,6 @@ Vercel 自动部署
+ git add . && git commit -m "修了一个bug" && git push
+ ```
+ 
+-Vercel 会自动检测到推送并重新部署，无需手动管理服务器。
+\ No newline at end of file
++Vercel 会自动检测到推送并重新部署，无需手动管理服务器。
++
++说明：项目已移除 `gh-pages` 部署配置并以 Vercel 为首选托管方式。若你需要我恢复 `gh-pages` 部署，请告知。
+\ No newline at end of file
+diff --git a/package.json b/package.json
+index caec39b..95cdc1a 100644
+--- a/package.json
++++ b/package.json
+@@ -6,14 +6,13 @@
+   "scripts": {
+     "parse": "node scripts/parse_cbeta.js",
+     "dev": "npx serve .",
+-    "deploy": "gh-pages -d . -r https://github.com/lifour/Platform_Solo.git",
+-    "deploy:gitee": "gh-pages -d src -r https://gitee.com/lifour/Platform_Solo.git"
++    "deploy": "echo \"Use Vercel for deployment; gh-pages removed.\""
+   },
+   "devDependencies": {
+     "fast-xml-parser": "^4.5.0",
+     "pinyin-pro": "^3.28.1",
+     "serve": "^14.2.0",
+-    "gh-pages": "^5.0.0"
++    
+   },
+   "dependencies": {
+     "lxgw-wenkai-webfont": "^1.7.0"
+-- 
+2.35.1.windows.2
+
