@@ -33,13 +33,13 @@ npm run deploy
 
 Vercel 自动部署（已连接）
 
-如果项目已连接到 Vercel，则后续在 VS Code 修改代码并推送后，Vercel 会自动重新部署。示例提交命令：
+如果项目已连接到 Vercel，则在 VS Code 修改并推送后，Vercel 会自动重新部署：
 
 ```bash
 git add . && git commit -m "修了一个bug" && git push
 ```
 
-无需手动管理服务器或运行 `npm run deploy`（除非你仍想使用 gh-pages）。
+说明：项目已移除 `gh-pages` 自动部署配置并推荐使用 Vercel。若需保留 gh-pages 可恢复相关脚本与依赖，但当前首选 Vercel。 
 六祖坛经 · 阅藏
 
 本仓库为本地静态站点项目，提供经文阅读器（宗宝本 + 敦煌本对照），支持拼音注音切换、全文搜索与术语工具提示。

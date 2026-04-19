@@ -26,3 +26,5 @@ git add . && git commit -m "修了一个bug" && git push
 ```
 
 Vercel 会自动检测到推送并重新部署，无需手动管理服务器。
+
+说明：项目已移除 `gh-pages` 部署配置并以 Vercel 为首选托管方式。若你需要我恢复 `gh-pages` 部署，请告知。
