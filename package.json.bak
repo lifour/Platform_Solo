@@ -1,0 +1,18 @@
+{
+  "name": "platform-solo-sutra",
+  "version": "1.0.0",
+  "description": "六祖坛经·阅藏 — 经折装数字阅读器",
+  "private": true,
+  "scripts": {
+    "parse": "node scripts/parse_cbeta.js",
+    "dev": "npx serve src"
+  },
+  "devDependencies": {
+    "fast-xml-parser": "^4.5.0",
+    "pinyin-pro": "^3.28.1",
+    "serve": "^14.2.0"
+  },
+  "dependencies": {
+    "lxgw-wenkai-webfont": "^1.7.0"
+  }
+}
