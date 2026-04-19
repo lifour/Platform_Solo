@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "parse": "node scripts/parse_cbeta.js",
-    "dev": "npx serve src",
-    "deploy": "gh-pages -d src -r git@github.com:lifour/Platform_Solo.git",
+    "dev": "npx serve .",
+    "deploy": "gh-pages -d . -r git@github.com:lifour/Platform_Solo.git",
     "deploy:gitee": "gh-pages -d src -r https://gitee.com/lifour/Platform_Solo.git"
   },
   "devDependencies": {

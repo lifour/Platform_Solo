@@ -13,7 +13,7 @@ npm install
 2. 本地运行：
 
 ```bash
-npx serve src -l 3000
+npx serve . -l 3000
 # 若端口被占用，serve 会自动选择其它端口
 ```
 
