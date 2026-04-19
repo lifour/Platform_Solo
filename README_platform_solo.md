@@ -17,3 +17,12 @@ npm install
 npx serve . -l 3000
 # 若端口被占用，serve 会自动选择其它端口
 ```
+Vercel 自动部署
+
+本项目已连接到 Vercel。以后在 VS Code 修改代码后，按下面命令提交并推送到远程：
+
+```bash
+git add . && git commit -m "修了一个bug" && git push
+```
+
+Vercel 会自动检测到推送并重新部署，无需手动管理服务器。
