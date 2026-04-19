@@ -16,22 +16,3 @@ npm install
 npx serve src -l 3000
 # 若端口被占用，serve 会自动选择其它端口
 ```
-
-将仓库推送到 GitHub
-
-1. 在 https://github.com/new 创建一个新仓库（例如 `platform-solo`）。
-2. 在本地添加远程并推送（可选 ssh 或 https）：
-
-SSH:
-```bash
-git remote add origin git@github.com:YOUR_USERNAME/REPO_NAME.git
-git push -u origin master
-```
-
-HTTPS:
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
-git push -u origin master
-```
-
-如果你希望我也为你在 GitHub 上创建仓库（需要提供一个 GitHub personal access token），告诉我即可。
