@@ -1,6 +1,12 @@
 node_modules/
+dist/
+www/
 raw/
 .DS_Store
 Thumbs.db
 .vercel
 .env*.local
+android/build-debug-log*.txt
+android/*.zip
+android/gradle/wrapper/dists/
+

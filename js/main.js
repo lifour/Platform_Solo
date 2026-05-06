@@ -22,6 +22,60 @@ let pinyinMode = false;  // 拼音注音模式
 
 const STORAGE_KEY = 'sutra_scroll_pos';
 
+// UI strings (simplified originals). Use `toTraditional()` to convert when needed.
+const UI_STRINGS = {
+  topbarTitle: '六祖坛经',
+  compareBtnText: '对照',
+  compareBtnTitle: '敦煌本对照',
+  pinyinBtnText: '注音',
+  pinyinBtnTitle: '拼音注音',
+  searchPlaceholder: '搜经文…',
+  sidePanelTitle: '目录 & 搜索',
+  mobileSearchPlaceholder: '搜经文…',
+  mobileChapterHeading: '目录',
+  settingsTitle: '显示设置',
+  displayModeScroll: '滑动显示',
+  displayModePaged: '翻页显示',
+  settingsReset: '恢复默认',
+  compareModeLabel: '启用对照（敦煌本 vs 宗宝本）',
+  chapterPlaceholder: '— 选品 —'
+};
+
+function applyUILanguage(useTraditional) {
+  const conv = s => useTraditional ? toTraditional(s) : s;
+  try {
+    const titleEl = document.querySelector('.topbar-title'); if (titleEl) titleEl.textContent = conv(UI_STRINGS.topbarTitle);
+    const cb = document.getElementById('compare-btn'); if (cb) { cb.textContent = conv(UI_STRINGS.compareBtnText); cb.title = conv(UI_STRINGS.compareBtnTitle); }
+    const pb = document.getElementById('pinyin-btn'); if (pb) { pb.textContent = conv(UI_STRINGS.pinyinBtnText); pb.title = conv(UI_STRINGS.pinyinBtnTitle); }
+    const si = document.getElementById('search-input'); if (si) si.placeholder = conv(UI_STRINGS.searchPlaceholder);
+    const sp = document.querySelector('.side-panel-title'); if (sp) sp.textContent = conv(UI_STRINGS.sidePanelTitle);
+    const msi = document.getElementById('mobile-search-input'); if (msi) msi.placeholder = conv(UI_STRINGS.mobileSearchPlaceholder);
+    const mch = document.querySelector('.mobile-chapter-heading'); if (mch) mch.textContent = conv(UI_STRINGS.mobileChapterHeading);
+    const st = document.querySelector('.settings-title'); if (st) st.textContent = conv(UI_STRINGS.settingsTitle);
+    const displaySelect = document.getElementById('display-mode-select');
+    if (displaySelect) {
+      const opt0 = displaySelect.querySelector('option[value="scroll"]'); if (opt0) opt0.textContent = conv(UI_STRINGS.displayModeScroll);
+      const opt1 = displaySelect.querySelector('option[value="paged"]'); if (opt1) opt1.textContent = conv(UI_STRINGS.displayModePaged);
+    }
+    const settingsReset = document.getElementById('settings-reset'); if (settingsReset) settingsReset.textContent = conv(UI_STRINGS.settingsReset);
+    const compareLabel = document.querySelector('label.checkbox-label');
+    if (compareLabel) {
+      const inp = compareLabel.querySelector('input');
+      compareLabel.textContent = '';
+      if (inp) compareLabel.appendChild(inp);
+      compareLabel.appendChild(document.createTextNode(' ' + conv(UI_STRINGS.compareModeLabel)));
+    }
+    const chapterSelect = document.getElementById('chapter-select'); if (chapterSelect) { const opt = chapterSelect.querySelector('option[value=""]'); if (opt) opt.textContent = conv(UI_STRINGS.chapterPlaceholder); }
+  } catch (e) { /* ignore UI update errors */ }
+}
+
+function initUILanguage() {
+  const stored = (function(){ try { return localStorage.getItem('ui_traditional'); } catch(e){ return null; } })();
+  const useTrad = stored === '1';
+  applyUILanguage(useTrad);
+  try { const chk = document.getElementById('setting-traditional-mode'); if (chk) chk.checked = useTrad; } catch(e){}
+}
+
 // ---- 启动 ----
 document.addEventListener('DOMContentLoaded', init);
 
@@ -66,6 +120,7 @@ async function init() {
     // initialize UI prefs (display mode, compare mode) before first render
     initDisplayMode();
     initCompareMode();
+    initUILanguage();
     render();
     setupScroll();
     setupNavigation();
@@ -367,7 +422,7 @@ function renderCompareMode(container, select, termPattern) {
       notice.className = 'para';
       notice.style.color = 'var(--ink-light)';
       notice.style.fontStyle = 'italic';
-      notice.textContent = '（敦煌本無此品內容）';
+      notice.textContent = '（敦煌本无此品内容）';
       colDH.appendChild(notice);
     }
 
@@ -376,7 +431,7 @@ function renderCompareMode(container, select, termPattern) {
     colZB.className = 'compare-col compare-col--zb';
     const labelZB = document.createElement('span');
     labelZB.className = 'compare-col-label';
-    labelZB.textContent = '宗寶本';
+    labelZB.textContent = '宗宝本';
     colZB.appendChild(labelZB);
 
     const titleWrapZB = document.createElement('div');
@@ -598,13 +653,13 @@ function setupToggles() {
 
   if (!dunhuangData) {
     compareBtn.disabled = true;
-    compareBtn.title = '敦煌本數據未載入';
+    compareBtn.title = '敦煌本数据未载入';
   }
   // 如果有预生成的 pinyin JSON，也视为可用
   const hasPinyinPregen = !!(window._zongbaoPinyin || window._dunhuangPinyin);
   if ((!pinyinMap || Object.keys(pinyinMap).length === 0) && !hasPinyinPregen) {
     pinyinBtn.disabled = true;
-    pinyinBtn.title = '拼音數據未載入';
+    pinyinBtn.title = '拼音数据未载入';
   }
 
   compareBtn.addEventListener('click', () => {
@@ -1058,6 +1113,19 @@ function setupSearch() {
 
   if (topSettingsBtn) topSettingsBtn.addEventListener('click', () => { if (settingsPanel) settingsPanel.hidden = false; settingsPanel.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; });
 
+  // Traditional UI toggle wiring
+  try {
+    const tradChk = document.getElementById('setting-traditional-mode');
+    if (tradChk) {
+      try { tradChk.checked = (localStorage.getItem('ui_traditional') === '1'); } catch(e){}
+      tradChk.addEventListener('change', () => {
+        const v = !!tradChk.checked;
+        try { localStorage.setItem('ui_traditional', v ? '1' : '0'); } catch(e){}
+        applyUILanguage(v);
+      });
+    }
+  } catch(e) {}
+
   function openPanel() {
     panel.hidden = false;
     panel.classList.add('open');
@@ -1150,7 +1218,7 @@ function setupSearch() {
     const seen = new Set(); // 去重
 
     // 搜索的数据源
-    const dataSources = [{ data: sutraData, label: '宗寶本' }];
+    const dataSources = [{ data: sutraData, label: '宗宝本' }];
     if (dunhuangData) dataSources.push({ data: dunhuangData, label: '敦煌本' });
 
     for (const q of queries) {
@@ -1181,11 +1249,11 @@ function setupSearch() {
       }
     }
 
-    countLabel.textContent = results.length > 0 ? `${results.length} 處` : '無結果';
+    countLabel.textContent = results.length > 0 ? `${results.length} 处` : '无结果';
 
     results.slice(0, 100).forEach(r => {
       const li = document.createElement('li');
-      const edLabel = r.edition !== '宗寶本' ? `<span style="font-size:0.7rem;color:var(--ink-light);margin-left:0.4em">${escapeHtml(r.edition)}</span>` : '';
+      const edLabel = r.edition !== '宗宝本' ? `<span style="font-size:0.7rem;color:var(--ink-light);margin-left:0.4em">${escapeHtml(r.edition)}</span>` : '';
       li.innerHTML =
         `<div class="result-chapter">${escapeHtml(r.chapterTitle)}${edLabel}</div>` +
         `<div>${escapeHtml(r.before)}<mark>${escapeHtml(r.match)}</mark>${escapeHtml(r.after)}</div>`;

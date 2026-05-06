@@ -16,3 +16,22 @@ npm install
 npx serve . -l 3000
 # 若端口被占用，serve 会自动选择其它端口
 ```
+
+```bash
+# 1) 同步 web 资源到 Android 项目
+Set-Location 'C:\work\Platform_Solo'
+npx cap copy android
+
+# 2) 在 android 目录构建 Debug APK
+Set-Location 'C:\work\Platform_Solo\android'
+$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_SDK_ROOT='C:\SDK'
+$env:ANDROID_HOME='C:\SDK'
+$env:PATH += ';C:\Program Files\Android\Android Studio\jbr\bin;C:\SDK\platform-tools'
+.\gradlew clean assembleDebug --no-daemon --stacktrace
+
+# 3) 列出并安装 APK 到已连接设备
+Get-ChildItem .\app\build\outputs\apk\debug -File
+C:\SDK\platform-tools\adb.exe devices
+C:\SDK\platform-tools\adb.exe install -r .\app\build\outputs\apk\debug\app-debug.apk
+```

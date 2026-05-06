@@ -1,0 +1,153 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = "com.example.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.example.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// Diagnostic task: print SDK directories from local.properties for debugging
+task printSdk {
+    doLast {
+        try {
+            def lp = file('../local.properties')
+            if (lp.exists()) {
+                def content = lp.text.trim()
+                println "local.properties: ${content}"
+                def sdkDir = content.contains('=') ? content.split('=')[1].trim() : content
+                def sdk = file(sdkDir)
+                println "sdk.dir -> ${sdk.absolutePath}"
+                println "sdk exists: ${sdk.exists()}"
+                def platforms = new File(sdk, 'platforms')
+                println "platforms dir exists: ${platforms.exists()} -> ${platforms.list() ?: '[]'}"
+                def buildTools = new File(sdk, 'build-tools')
+                println "build-tools dir exists: ${buildTools.exists()} -> ${buildTools.list() ?: '[]'}"
+                def licenses = new File(sdk, 'licenses')
+                println "licenses dir exists: ${licenses.exists()} -> ${licenses.list() ?: '[]'}"
+            } else {
+                println "local.properties not found at ${lp.absolutePath}"
+            }
+        } catch(Exception e) {
+            println "printSdk task error: ${e.toString()}"
+        }
+    }
+}
+
+// --- Auto-include project `data/` into the Android web assets before every build ---
+task copyWebData(type: Copy) {
+    def src = file("${rootProject.projectDir}/../data")
+    def dest = file("${projectDir}/src/main/assets/public/data")
+    from src
+    into dest
+    include '**/*'
+}
+preBuild.dependsOn(copyWebData)
+
+// --- Install custom icon from `www/icon.png` into Android mipmap folders if present ---
+task installCustomIcon {
+    doLast {
+        def webIcon = file("${rootProject.projectDir}/../www/icon.png")
+        if (!webIcon.exists()) {
+            logger.lifecycle("No custom icon at ${webIcon}, skipping installCustomIcon.")
+            return
+        }
+        def mipmaps = ['mipmap-mdpi','mipmap-hdpi','mipmap-xhdpi','mipmap-xxhdpi','mipmap-xxxhdpi','mipmap-anydpi-v26']
+        mipmaps.each { m ->
+            def destDir = file("${projectDir}/src/main/res/${m}")
+            if (!destDir.exists()) destDir.mkdirs()
+            // Ensure any legacy PNGs that could conflict with adaptive XML are removed in anydpi
+            if (m == 'mipmap-anydpi-v26') {
+                def legacy1 = file("${projectDir}/src/main/res/${m}/ic_launcher.png")
+                def legacy2 = file("${projectDir}/src/main/res/${m}/ic_launcher_round.png")
+                if (legacy1.exists()) {
+                    legacy1.delete()
+                    logger.lifecycle("Removed legacy ${legacy1}")
+                }
+                if (legacy2.exists()) {
+                    legacy2.delete()
+                    logger.lifecycle("Removed legacy ${legacy2}")
+                }
+            }
+            // For adaptive mipmap-anydpi-v26, avoid writing legacy ic_launcher(.png) files
+            if (m == 'mipmap-anydpi-v26') {
+                // copy foreground and background only (do not create ic_launcher.png/ic_launcher_round.png)
+                copy {
+                    from webIcon
+                    into destDir
+                    rename { 'ic_launcher_foreground.png' }
+                }
+                // copy background as ic_launcher_background.png so adaptive XML can reference it
+                copy {
+                    from webIcon
+                    into destDir
+                    rename { 'ic_launcher_background.png' }
+                }
+            } else {
+                copy {
+                    from webIcon
+                    into destDir
+                    rename { 'ic_launcher.png' }
+                }
+                copy {
+                    from webIcon
+                    into destDir
+                    rename { 'ic_launcher_round.png' }
+                }
+                copy {
+                    from webIcon
+                    into destDir
+                    rename { 'ic_launcher_foreground.png' }
+                }
+            }
+        }
+        logger.lifecycle("Custom icon installed from ${webIcon}")
+    }
+}
+preBuild.dependsOn(installCustomIcon)

@@ -509,7 +509,7 @@ mark.search-highlight {
 .side-panel-title { font-weight:600; color:var(--accent-gold); }
 .side-panel-header .topbar-btn { display: inline-flex; font-size: 1rem; padding: 0.36rem 0.6rem; z-index: 920; }
 .side-panel-body { padding:0.8rem 1rem; overflow:auto; }
-.sr-only { position:absolute; left:-9999px; }
+
 .mobile-search-row { display:flex; gap:0.5rem; align-items:center; margin-top:0.6rem; margin-bottom:0.6rem; }
 .mobile-search-row input { flex:1; padding:0.5rem; border:1px solid var(--paper-edge); border-radius:4px; font-family:var(--font-main); box-sizing: border-box; width:100%; }
 .mobile-search-row .search-count { font-size:0.75rem; color:var(--ink-light); }
