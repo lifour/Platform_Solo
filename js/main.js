@@ -19,6 +19,8 @@ let longPressTimer = null;
 let isFlipping = false;
 let compareMode = false; // 对照模式
 let pinyinMode = false;  // 拼音注音模式
+let useTraditionalContent = false; // 经文内容：默认简体
+let _hasRendered = false;
 
 const STORAGE_KEY = 'sutra_scroll_pos';
 
@@ -42,6 +44,7 @@ const UI_STRINGS = {
 };
 
 function applyUILanguage(useTraditional) {
+  useTraditionalContent = useTraditional;
   const conv = s => useTraditional ? toTraditional(s) : s;
   try {
     const titleEl = document.querySelector('.topbar-title'); if (titleEl) titleEl.textContent = conv(UI_STRINGS.topbarTitle);
@@ -67,6 +70,7 @@ function applyUILanguage(useTraditional) {
     }
     const chapterSelect = document.getElementById('chapter-select'); if (chapterSelect) { const opt = chapterSelect.querySelector('option[value=""]'); if (opt) opt.textContent = conv(UI_STRINGS.chapterPlaceholder); }
   } catch (e) { /* ignore UI update errors */ }
+  if (_hasRendered) rerender();
 }
 
 function initUILanguage() {
@@ -230,6 +234,14 @@ function render() {
     setupTermInteraction();
     window._termInteractionInstalled = true;
   }
+
+  // 简体模式：转换正文、目录文本节点（data-term 属性保持繁体）
+  if (!useTraditionalContent) {
+    applySimplifiedToContainer(document.querySelector('.scroll-container'));
+    applySimplifiedToContainer(document.getElementById('chapter-select'));
+    applySimplifiedToContainer(document.getElementById('mobile-chapter-list'));
+  }
+  _hasRendered = true;
 }
 
 /**
@@ -1003,6 +1015,24 @@ function toTraditional(str) {
   return out;
 }
 
+// ---- 繁→简映射（由 _s2tMap 反转） ----
+const _t2sMap = Object.fromEntries(Object.entries(_s2tMap).map(([s, t]) => [t, s]));
+
+function toSimplified(str) {
+  let out = '';
+  for (const ch of str) out += _t2sMap[ch] || ch;
+  return out;
+}
+
+// 仅转换 DOM 文本节点（保留属性值，如 data-term 保持繁体供词典匹配）
+function applySimplifiedToContainer(el) {
+  if (!el) return;
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node => { node.textContent = toSimplified(node.textContent); });
+}
+
 // ---- 全文搜索 ----
 function setupSearch() {
   const btn = document.getElementById('search-btn');
@@ -1127,16 +1157,18 @@ function setupSearch() {
   } catch(e) {}
 
   function openPanel() {
-    panel.hidden = false;
-    panel.classList.add('open');
-    // show overlay to block main interactions
-    if (panelOverlay) { panelOverlay.hidden = false; }
+    const topbarEl = document.querySelector('.topbar');
+    const topbarSearchRow = document.getElementById('topbar-search-row');
+    topbarEl.classList.add('searching');
+    if (topbarSearchRow) topbarSearchRow.hidden = false;
     input.focus();
   }
   function closePanel() {
+    const topbarEl = document.querySelector('.topbar');
+    const topbarSearchRow = document.getElementById('topbar-search-row');
+    topbarEl.classList.remove('searching');
+    if (topbarSearchRow) topbarSearchRow.hidden = true;
     panel.hidden = true;
-    panel.classList.remove('open');
-    if (panelOverlay) { panelOverlay.hidden = true; }
     clearSearchHighlights();
   }
 
@@ -1203,6 +1235,7 @@ function setupSearch() {
     resultsList.innerHTML = '';
     countLabel.textContent = '';
     if (!query) {
+      panel.hidden = true;
       // hide mobile overlay results when query cleared
       if (mobileResults) { mobileResults.innerHTML = ''; mobileResults.classList.remove('visible'); mobileCount.textContent = ''; }
       return;
@@ -1250,6 +1283,8 @@ function setupSearch() {
     }
 
     countLabel.textContent = results.length > 0 ? `${results.length} 处` : '无结果';
+
+    panel.hidden = results.length === 0;
 
     results.slice(0, 100).forEach(r => {
       const li = document.createElement('li');

@@ -16,33 +16,34 @@
 
   <!-- 顶栏 -->
   <header class="topbar">
-    <button id="side-handle" class="side-handle" aria-label="打开目录" hidden></button>
-    <div class="topbar-title">六祖坛经</div>
-    
-    <nav class="topbar-nav">
-      <button id="compare-btn" class="topbar-btn" aria-label="对照" title="敦煌本对照" hidden>对照</button>
-      <button id="pinyin-btn" class="topbar-btn" aria-label="注音" title="拼音注音">注音</button>
-      <button id="search-btn" class="topbar-btn" aria-label="搜索">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      </button>
-      <button id="top-search-settings" class="topbar-btn" aria-label="设置">⚙</button>
-      <select id="chapter-select" aria-label="品名导航">
-        <option value="">— 选品 —</option>
-      </select>
-      <span class="topbar-progress">0%</span>
-    </nav>
-  </header>
-
-  <!-- 搜索面板 -->
-  <div id="search-panel" class="search-panel" hidden>
-    <div class="search-input-row">
-      <input id="search-input" type="text" placeholder="搜经文…" autocomplete="off">
-      <button id="search-settings-btn" class="topbar-btn" aria-label="设置">⚙</button>
-      <span id="search-count" class="search-count"></span>
-      <button id="search-close" class="topbar-btn" aria-label="关闭">✕</button>
+    <div class="topbar-main">
+      <button id="side-handle" class="side-handle" aria-label="打开目录" hidden></button>
+      <div class="topbar-title">六祖坛经</div>
+      <nav class="topbar-nav">
+        <button id="compare-btn" class="topbar-btn" aria-label="对照" title="敦煌本对照" hidden>对照</button>
+        <button id="pinyin-btn" class="topbar-btn" aria-label="注音" title="拼音注音">注音</button>
+        <button id="search-btn" class="topbar-btn" aria-label="搜索">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+        <button id="top-search-settings" class="topbar-btn" aria-label="设置">⚙</button>
+        <select id="chapter-select" aria-label="品名导航">
+          <option value="">— 选品 —</option>
+        </select>
+        <span class="topbar-progress">0%</span>
+      </nav>
+      <!-- 搜索展开行（激活时替换标题和导航） -->
+      <div id="topbar-search-row" class="topbar-search-row" hidden>
+        <input id="search-input" type="text" placeholder="搜经文…" autocomplete="off">
+        <span id="search-count" class="search-count"></span>
+        <button id="search-settings-btn" class="topbar-btn" aria-label="设置">⚙</button>
+        <button id="search-close" class="topbar-btn" aria-label="关闭">✕</button>
+      </div>
     </div>
-    <ul id="search-results" class="search-results"></ul>
-  </div>
+    <!-- 搜索结果（顶栏内向下展开） -->
+    <div id="search-panel" class="search-panel" hidden>
+      <ul id="search-results" class="search-results"></ul>
+    </div>
+  </header>
 
   <!-- 经折装横滚容器 -->
   <main class="scroll-container">
@@ -137,7 +138,7 @@
       <div class="setting-row">
         <label>界面语言</label>
         <div class="setting-control">
-          <label class="checkbox-label"><input id="setting-traditional-mode" type="checkbox"> 使用繁体界面</label>
+          <label class="checkbox-label"><input id="setting-traditional-mode" type="checkbox"> 使用繁体（界面与经文）</label>
         </div>
       </div>
     </div>
