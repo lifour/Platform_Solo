@@ -22,20 +22,32 @@ let pinyinMode = false;  // 拼音注音模式
 let useTraditionalContent = false; // 经文内容：默认简体
 let _hasRendered = false;
 
+// bookmarks
+let bookmarks = []; // { id, chapterId, paraId, label, excerpt, ts }
+const BOOKMARKS_STORAGE_KEY = 'sutra_bookmarks_v1';
+
 const STORAGE_KEY = 'sutra_scroll_pos';
+const TRADITIONAL_PREF_KEY = 'ui_traditional_v2';
+const COMPARE_MODE_PREF_KEY = 'ui_compare_mode';
+const DEFAULT_EDITION_MIGRATION_KEY = 'ui_default_edition_v1';
 
 // UI strings (simplified originals). Use `toTraditional()` to convert when needed.
 const UI_STRINGS = {
   topbarTitle: '六祖坛经',
+  actionsBtnText: '⚙',
+  actionsBtnTitle: '操作',
   compareBtnText: '对照',
   compareBtnTitle: '敦煌本对照',
   pinyinBtnText: '注音',
   pinyinBtnTitle: '拼音注音',
+  downloadBtnText: '下载',
+  downloadBtnTitle: '下载宗宝本',
+  settingsBtnText: '设置',
   searchPlaceholder: '搜经文…',
   sidePanelTitle: '目录 & 搜索',
   mobileSearchPlaceholder: '搜经文…',
   mobileChapterHeading: '目录',
-  settingsTitle: '显示设置',
+  settingsTitle: '设置',
   displayModeScroll: '滑动显示',
   displayModePaged: '翻页显示',
   settingsReset: '恢复默认',
@@ -48,8 +60,11 @@ function applyUILanguage(useTraditional) {
   const conv = s => useTraditional ? toTraditional(s) : s;
   try {
     const titleEl = document.querySelector('.topbar-title'); if (titleEl) titleEl.textContent = conv(UI_STRINGS.topbarTitle);
+    const ab = document.getElementById('actions-menu-btn'); if (ab) { ab.textContent = UI_STRINGS.actionsBtnText; ab.title = conv(UI_STRINGS.actionsBtnTitle); ab.setAttribute('aria-label', conv(UI_STRINGS.actionsBtnTitle)); }
     const cb = document.getElementById('compare-btn'); if (cb) { cb.textContent = conv(UI_STRINGS.compareBtnText); cb.title = conv(UI_STRINGS.compareBtnTitle); }
     const pb = document.getElementById('pinyin-btn'); if (pb) { pb.textContent = conv(UI_STRINGS.pinyinBtnText); pb.title = conv(UI_STRINGS.pinyinBtnTitle); }
+    const db = document.getElementById('download-zongbao-btn'); if (db) { db.textContent = conv(UI_STRINGS.downloadBtnText); db.title = conv(UI_STRINGS.downloadBtnTitle); }
+    const sb = document.getElementById('top-search-settings'); if (sb) { sb.textContent = conv(UI_STRINGS.settingsBtnText); sb.title = conv(UI_STRINGS.settingsBtnText); sb.setAttribute('aria-label', conv(UI_STRINGS.settingsBtnText)); }
     const si = document.getElementById('search-input'); if (si) si.placeholder = conv(UI_STRINGS.searchPlaceholder);
     const sp = document.querySelector('.side-panel-title'); if (sp) sp.textContent = conv(UI_STRINGS.sidePanelTitle);
     const msi = document.getElementById('mobile-search-input'); if (msi) msi.placeholder = conv(UI_STRINGS.mobileSearchPlaceholder);
@@ -74,7 +89,7 @@ function applyUILanguage(useTraditional) {
 }
 
 function initUILanguage() {
-  const stored = (function(){ try { return localStorage.getItem('ui_traditional'); } catch(e){ return null; } })();
+  const stored = (function(){ try { return localStorage.getItem(TRADITIONAL_PREF_KEY); } catch(e){ return null; } })();
   const useTrad = stored === '1';
   applyUILanguage(useTrad);
   try { const chk = document.getElementById('setting-traditional-mode'); if (chk) chk.checked = useTrad; } catch(e){}
@@ -125,10 +140,12 @@ async function init() {
     initDisplayMode();
     initCompareMode();
     initUILanguage();
+      loadBookmarks();
     render();
     setupScroll();
     setupNavigation();
     setupToggles();
+    setupActionsMenu();
     restorePosition();
     setupSearch();
   } catch (err) {
@@ -156,12 +173,22 @@ function initDisplayMode() {
 // compare mode init/apply
 function applyCompareMode(enabled) {
   compareMode = !!enabled;
-  try { localStorage.setItem('ui_compare_mode', compareMode ? '1' : '0'); } catch(e){}
+  try { localStorage.setItem(COMPARE_MODE_PREF_KEY, compareMode ? '1' : '0'); } catch(e){}
   const cb = document.getElementById('compare-btn'); if (cb) cb.classList.toggle('active', compareMode);
 }
 
 function initCompareMode() {
-  try { const stored = localStorage.getItem('ui_compare_mode'); if (stored !== null) compareMode = (stored === '1' || stored === 'true'); } catch(e){}
+  compareMode = false;
+  try {
+    const migrated = localStorage.getItem(DEFAULT_EDITION_MIGRATION_KEY);
+    if (migrated !== '1') {
+      localStorage.setItem(COMPARE_MODE_PREF_KEY, '0');
+      localStorage.setItem(DEFAULT_EDITION_MIGRATION_KEY, '1');
+      return;
+    }
+    const stored = localStorage.getItem(COMPARE_MODE_PREF_KEY);
+    if (stored !== null) compareMode = (stored === '1' || stored === 'true');
+  } catch(e){}
 }
 
 
@@ -332,6 +359,7 @@ function renderNormalMode(container, select, termPattern) {
         para.dataset.para = p.id;
         para.innerHTML = p.pinyinHtml;
         fold.appendChild(para);
+        attachBookmarkToPara(para);
       } else {
         const chunks = splitSentences(p.text, 200);
         chunks.forEach((chunk) => {
@@ -340,6 +368,7 @@ function renderNormalMode(container, select, termPattern) {
           para.dataset.para = p.id;
           para.innerHTML = makeParaHTML(chunk, termPattern);
           fold.appendChild(para);
+          attachBookmarkToPara(para);
         });
       }
     });
@@ -417,6 +446,7 @@ function renderCompareMode(container, select, termPattern) {
           para.dataset.edition = 'dh';
           para.innerHTML = p.pinyinHtml;
           colDH.appendChild(para);
+          attachBookmarkToPara(para);
         } else {
           const chunks = splitSentences(p.text, 160);
           chunks.forEach((chunk) => {
@@ -426,6 +456,7 @@ function renderCompareMode(container, select, termPattern) {
             para.dataset.edition = 'dh';
             para.innerHTML = makeParaHTML(chunk, termPattern);
             colDH.appendChild(para);
+            attachBookmarkToPara(para);
           });
         }
       });
@@ -468,6 +499,7 @@ function renderCompareMode(container, select, termPattern) {
         para.dataset.edition = 'zb';
         para.innerHTML = p.pinyinHtml;
         colZB.appendChild(para);
+        attachBookmarkToPara(para);
       } else {
         const chunks = splitSentences(p.text, 160);
         chunks.forEach((chunk) => {
@@ -477,6 +509,7 @@ function renderCompareMode(container, select, termPattern) {
           para.dataset.edition = 'zb';
           para.innerHTML = makeParaHTML(chunk, termPattern);
           colZB.appendChild(para);
+          attachBookmarkToPara(para);
         });
       }
     });
@@ -662,6 +695,7 @@ function reflowCompareFolds(container) {
 function setupToggles() {
   const compareBtn = document.getElementById('compare-btn');
   const pinyinBtn = document.getElementById('pinyin-btn');
+  const downloadZongbaoBtn = document.getElementById('download-zongbao-btn');
 
   if (!dunhuangData) {
     compareBtn.disabled = true;
@@ -676,8 +710,9 @@ function setupToggles() {
 
   compareBtn.addEventListener('click', () => {
     if (!dunhuangData) return;
-    compareMode = !compareMode;
-    compareBtn.classList.toggle('active', compareMode);
+    applyCompareMode(!compareMode);
+    const compareCheckbox = document.getElementById('setting-compare-mode');
+    if (compareCheckbox) compareCheckbox.checked = compareMode;
     rerender();
   });
 
@@ -689,6 +724,227 @@ function setupToggles() {
     pinyinBtn.classList.toggle('active', pinyinMode);
     rerender();
   });
+
+  if (downloadZongbaoBtn) {
+    downloadZongbaoBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = 'data/zongbao.json';
+      link.download = 'liuzu-dashi-fabao-tanjing-zongbao.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+  }
+}
+
+/* ---- Bookmarks API ---- */
+function loadBookmarks() {
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_STORAGE_KEY);
+    bookmarks = raw ? JSON.parse(raw) : [];
+  } catch (e) { bookmarks = []; }
+  updateBookmarksBadge();
+}
+
+function saveBookmarks() {
+  try { localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks)); } catch(e){}
+  updateBookmarksBadge();
+}
+
+function bookmarkKey(chapterId, paraId) { return `${chapterId}:${paraId}`; }
+
+function isBookmarked(chapterId, paraId) {
+  const key = bookmarkKey(chapterId, paraId);
+  return bookmarks.some(b => b.id === key);
+}
+
+function addBookmark(chapterId, paraId, excerpt) {
+  const id = bookmarkKey(chapterId, paraId);
+  if (bookmarks.some(b => b.id === id)) return;
+  const title = getChapterTitleById(chapterId) || chapterId;
+  const label = title;
+  bookmarks.unshift({ id, chapterId, paraId, label, excerpt: excerpt ? excerpt.slice(0,80) : '', ts: Date.now() });
+  saveBookmarks();
+}
+
+function removeBookmark(chapterId, paraId) {
+  const id = bookmarkKey(chapterId, paraId);
+  const idx = bookmarks.findIndex(b => b.id === id);
+  if (idx !== -1) { bookmarks.splice(idx,1); saveBookmarks(); }
+}
+
+function updateBookmarksBadge() {
+  const btn = document.getElementById('bookmarks-btn');
+  if (btn) {
+    const n = bookmarks.length;
+    btn.textContent = n > 0 ? `书签 (${n})` : '书签';
+  }
+}
+
+function getChapterTitleById(id) {
+  try { const ch = (sutraData && sutraData.chapters || []).find(c => c.id === id); return ch ? ch.title : null; } catch(e){ return null; }
+}
+
+function attachBookmarkToPara(paraEl) {
+  if (!paraEl || !paraEl.dataset || !paraEl.dataset.para) return;
+  // avoid duplicate buttons
+  if (paraEl.querySelector('.bookmark-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'bookmark-btn';
+  btn.type = 'button';
+  btn.title = '书签';
+  btn.innerHTML = '<span aria-hidden>☆</span>';
+  const chapterEl = paraEl.closest('.fold');
+  const chapterId = chapterEl ? chapterEl.id : '';
+  const paraId = paraEl.dataset.para;
+  if (isBookmarked(chapterId, paraId)) { btn.classList.add('bookmarked'); btn.innerHTML = '<span aria-hidden>★</span>'; }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const excerpt = paraEl.textContent ? paraEl.textContent.trim().slice(0,120) : '';
+    if (isBookmarked(chapterId, paraId)) {
+      removeBookmark(chapterId, paraId);
+      btn.classList.remove('bookmarked'); btn.innerHTML = '<span aria-hidden>☆</span>';
+    } else {
+      addBookmark(chapterId, paraId, excerpt);
+      btn.classList.add('bookmarked'); btn.innerHTML = '<span aria-hidden>★</span>';
+    }
+    renderBookmarksPanel();
+  });
+
+  // append button at end of paragraph
+  paraEl.appendChild(btn);
+}
+
+function renderBookmarksPanel() {
+  const panel = document.getElementById('bookmarks-panel');
+  if (!panel) return;
+  const list = document.getElementById('bookmarks-list');
+  const empty = document.getElementById('bookmarks-empty');
+  list.innerHTML = '';
+  if (!bookmarks || bookmarks.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  bookmarks.forEach(b => {
+    const li = document.createElement('li');
+    li.className = 'bookmarks-list-item';
+    const left = document.createElement('div');
+    left.style.display = 'flex'; left.style.alignItems = 'center';
+    const badge = document.createElement('span'); badge.className = 'bookmarks-badge'; badge.textContent = getChapterTitleById(b.chapterId) ? '' : '';
+    const meta = document.createElement('div'); meta.className = 'bm-meta';
+    const excerptShort = b.excerpt ? (b.excerpt.length > 80 ? b.excerpt.slice(0,80) + '…' : b.excerpt) : '（无摘录）';
+    meta.textContent = (b.label ? b.label + ' · ' : '') + excerptShort;
+    meta.title = b.excerpt || '';
+    left.appendChild(badge); left.appendChild(meta);
+    const actions = document.createElement('div'); actions.className = 'bm-actions';
+    const goto = document.createElement('button'); goto.className = 'topbar-btn'; goto.textContent = '跳转';
+    goto.addEventListener('click', () => {
+      const target = document.querySelector(`#${CSS.escape(b.chapterId)} .para[data-para="${b.paraId}"]`);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      hideBookmarksPanel();
+    });
+    const del = document.createElement('button'); del.className = 'topbar-btn'; del.textContent = '删除';
+    del.addEventListener('click', () => {
+      removeBookmark(b.chapterId, b.paraId);
+      renderBookmarksPanel();
+      // update button states in document
+      const para = document.querySelector(`#${CSS.escape(b.chapterId)} .para[data-para="${b.paraId}"]`);
+      if (para) {
+        const btn = para.querySelector('.bookmark-btn'); if (btn) { btn.classList.remove('bookmarked'); btn.innerHTML = '<span aria-hidden>☆</span>'; }
+      }
+    });
+    actions.appendChild(goto); actions.appendChild(del);
+    li.appendChild(left); li.appendChild(actions);
+    list.appendChild(li);
+  });
+}
+
+function showBookmarksPanel() {
+  const panel = document.getElementById('bookmarks-panel'); if (!panel) return;
+  panel.hidden = false; updateBookmarksBadge(); renderBookmarksPanel();
+}
+function hideBookmarksPanel() { const panel = document.getElementById('bookmarks-panel'); if (!panel) return; panel.hidden = true; }
+
+
+function setupActionsMenu() {
+  const menuBtn = document.getElementById('actions-menu-btn');
+  const menuPanel = document.getElementById('actions-menu-panel');
+  if (!menuBtn || !menuPanel) return;
+
+  function closeMenu() {
+    menuPanel.hidden = true;
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function openMenu() {
+    menuPanel.hidden = false;
+    menuBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menuPanel.hidden) openMenu();
+    else closeMenu();
+  });
+
+  menuPanel.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const actionButton = e.target.closest('button');
+    if (actionButton && !actionButton.disabled) closeMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.actions-menu')) closeMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+  });
+
+  // bookmarks menu entry
+  const bmBtn = document.getElementById('bookmarks-btn');
+  if (bmBtn) {
+    bmBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showBookmarksPanel();
+    });
+  }
+
+  // bookmarks panel controls
+  const bmPanel = document.getElementById('bookmarks-panel');
+  if (bmPanel) {
+    const back = document.getElementById('bookmarks-back'); if (back) back.addEventListener('click', () => hideBookmarksPanel());
+    const exp = document.getElementById('bookmarks-export'); if (exp) exp.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(bookmarks, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'bookmarks.json'; document.body.appendChild(link); link.click(); link.remove();
+    });
+    const impBtn = document.getElementById('bookmarks-import-btn'); const impInput = document.getElementById('bookmarks-import');
+    if (impBtn && impInput) {
+      impBtn.addEventListener('click', () => impInput.click());
+      impInput.addEventListener('change', (ev) => {
+        const f = ev.target.files && ev.target.files[0]; if (!f) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const parsed = JSON.parse(e.target.result);
+            if (Array.isArray(parsed)) {
+              // merge, avoid duplicates
+              parsed.forEach(pb => {
+                if (pb && pb.chapterId && pb.paraId) {
+                  const id = `${pb.chapterId}:${pb.paraId}`;
+                  if (!bookmarks.some(b => b.id === id)) bookmarks.push({ id, chapterId: pb.chapterId, paraId: pb.paraId, label: pb.label || getChapterTitleById(pb.chapterId) || pb.chapterId, excerpt: pb.excerpt || '', ts: pb.ts || Date.now() });
+                }
+              });
+              saveBookmarks(); renderBookmarksPanel();
+            }
+          } catch(err) { console.error('导入书签失败', err); }
+        };
+        reader.readAsText(f);
+      });
+    }
+  }
 }
 
 function rerender() {
@@ -1041,7 +1297,6 @@ function setupSearch() {
   const closeBtn = document.getElementById('search-close');
   const resultsList = document.getElementById('search-results');
   const countLabel = document.getElementById('search-count');
-  const settingsBtn = document.getElementById('search-settings-btn');
   const topSettingsBtn = document.getElementById('top-search-settings');
   const settingsPanel = document.getElementById('settings-panel');
   const settingsBack = document.getElementById('settings-back');
@@ -1066,6 +1321,7 @@ function setupSearch() {
   const panelOverlay = document.getElementById('panel-overlay');
 
   let debounceTimer = null;
+  let searchCloseTimer = null;
 
   // Settings defaults
   const DEFAULT_FONT_PX = 18;
@@ -1125,8 +1381,6 @@ function setupSearch() {
   } catch(e) {}
 
   // settings UI wiring
-  if (settingsBtn) settingsBtn.addEventListener('click', () => { if (settingsPanel) settingsPanel.hidden = false; settingsPanel.classList.add('open'); if (panelOverlay) panelOverlay.hidden = false; });
-  // mobile side-panel no longer has a separate settings button
   if (settingsBack) settingsBack.addEventListener('click', () => { if (settingsPanel) { settingsPanel.hidden = true; settingsPanel.classList.remove('open'); } if (panelOverlay) panelOverlay.hidden = true; });
 
   if (fontSizeRange) {
@@ -1147,33 +1401,55 @@ function setupSearch() {
   try {
     const tradChk = document.getElementById('setting-traditional-mode');
     if (tradChk) {
-      try { tradChk.checked = (localStorage.getItem('ui_traditional') === '1'); } catch(e){}
+      try { tradChk.checked = (localStorage.getItem(TRADITIONAL_PREF_KEY) === '1'); } catch(e){}
       tradChk.addEventListener('change', () => {
         const v = !!tradChk.checked;
-        try { localStorage.setItem('ui_traditional', v ? '1' : '0'); } catch(e){}
+        try {
+          localStorage.setItem(TRADITIONAL_PREF_KEY, v ? '1' : '0');
+          localStorage.removeItem('ui_traditional');
+        } catch(e){}
         applyUILanguage(v);
       });
     }
   } catch(e) {}
 
+  function isSearchOpen() {
+    return document.querySelector('.topbar')?.classList.contains('searching') || false;
+  }
+
   function openPanel() {
     const topbarEl = document.querySelector('.topbar');
     const topbarSearchRow = document.getElementById('topbar-search-row');
+    if (!topbarEl || !topbarSearchRow || isSearchOpen()) return;
+    if (searchCloseTimer) {
+      clearTimeout(searchCloseTimer);
+      searchCloseTimer = null;
+    }
+    topbarSearchRow.hidden = false;
     topbarEl.classList.add('searching');
-    if (topbarSearchRow) topbarSearchRow.hidden = false;
+    requestAnimationFrame(() => topbarSearchRow.classList.add('search-open'));
     input.focus();
   }
+
   function closePanel() {
     const topbarEl = document.querySelector('.topbar');
     const topbarSearchRow = document.getElementById('topbar-search-row');
-    topbarEl.classList.remove('searching');
-    if (topbarSearchRow) topbarSearchRow.hidden = true;
+    if (!topbarEl || !topbarSearchRow || !isSearchOpen()) return;
+    topbarSearchRow.classList.remove('search-open');
+    input.blur();
     panel.hidden = true;
     clearSearchHighlights();
+    if (searchCloseTimer) clearTimeout(searchCloseTimer);
+    searchCloseTimer = setTimeout(() => {
+      topbarEl.classList.remove('searching');
+      topbarSearchRow.hidden = true;
+      searchCloseTimer = null;
+    }, 180);
   }
 
   btn.addEventListener('click', () => {
-    panel.hidden ? openPanel() : closePanel();
+    if (isSearchOpen()) closePanel();
+    else openPanel();
   });
 
   closeBtn.addEventListener('click', closePanel);
@@ -1184,7 +1460,7 @@ function setupSearch() {
       openPanel();
       input.select();
     }
-    if (e.key === 'Escape' && !panel.hidden) {
+    if (e.key === 'Escape' && isSearchOpen()) {
       closePanel();
     }
   });
@@ -1360,19 +1636,29 @@ function setupSearch() {
 
     // 优先匹配版本
     let selector = `.para[data-para="${result.paraId}"]`;
-    if (result.edition === '敦煌本') {
-      selector = `.para[data-para="${result.paraId}"][data-edition="dh"]`;
-    }
+    if (result.edition === '敦煌本') selector = `.para[data-para="${result.paraId}"][data-edition="dh"]`;
     const paraEl = document.querySelector(selector) || document.querySelector(`.para[data-para="${result.paraId}"]`);
     if (!paraEl) return;
 
-    const fold = paraEl.closest('.fold');
-    if (fold) {
-      fold.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
-    }
+    // Scroll into view with offset to account for fixed topbar
+    scrollIntoViewWithOffset(paraEl, /*offset*/ getTopbarHeight());
 
-    // 延迟高亮，等翻页动画完成
+    // 延迟高亮，等翻页/滚动动画完成
     setTimeout(() => highlightInElement(paraEl, result.query), 550);
+  }
+
+  function getTopbarHeight() {
+    const topbar = document.querySelector('.topbar');
+    if (!topbar) return 0;
+    return Math.round(topbar.getBoundingClientRect().height) + 4; // small padding
+  }
+
+  function scrollIntoViewWithOffset(el, offset) {
+    // try smooth scroll by computing element's position relative to viewport and scrolling window
+    const rect = el.getBoundingClientRect();
+    const absoluteY = window.scrollY + rect.top;
+    const targetY = Math.max(0, absoluteY - (offset || 0));
+    window.scrollTo({ top: targetY, behavior: 'smooth' });
   }
 }
 

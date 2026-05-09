@@ -2,6 +2,8 @@
 
 本仓库为本地静态站点项目，提供经文阅读器（宗宝本 + 敦煌本对照），支持拼音注音切换、全文搜索与术语工具提示
 
+当前默认版本为宗宝本。顶栏“下载”按钮可直接导出当前内置的宗宝本数据文件 data/zongbao.json。
+
 快速开始
 
 1. 安装依赖：
@@ -34,4 +36,12 @@ $env:PATH += ';C:\Program Files\Android\Android Studio\jbr\bin;C:\SDK\platform-t
 Get-ChildItem .\app\build\outputs\apk\debug -File
 C:\SDK\platform-tools\adb.exe devices
 C:\SDK\platform-tools\adb.exe install -r .\app\build\outputs\apk\debug\app-debug.apk
+
+
+# 重新同步并重打包一次：
+Set-Location 'C:\work\Platform_Solo'
+npx cap copy android
+
+Set-Location 'C:\work\Platform_Solo\android'
+.\gradlew assembleDebug
 ```
