@@ -1,0 +1,18 @@
+/* highlight.css — 文字高亮颜色 */
+
+mark.hl-yellow,
+mark.hl-green,
+mark.hl-blue,
+mark.hl-pink,
+mark.hl-orange {
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+  border-bottom: 2px solid transparent;
+}
+
+mark.hl-yellow  { background: #FFF176; border-bottom-color: #FDD835; }
+mark.hl-green   { background: #A5D6A7; border-bottom-color: #66BB6A; }
+mark.hl-blue    { background: #90CAF9; border-bottom-color: #42A5F5; }
+mark.hl-pink    { background: #F48FB1; border-bottom-color: #EC407A; }
+mark.hl-orange  { background: #FFCC80; border-bottom-color: #FFA726; }

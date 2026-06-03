@@ -11,7 +11,7 @@ const https = require('https');
 
 const RAW_URL = 'https://raw.githubusercontent.com/cbeta-git/xml-p5a/master/T/T48/T48n2007.xml';
 const RAW_PATH = path.join(__dirname, '..', 'raw', 'T48n2007.xml');
-const OUT_PATH = path.join(__dirname, '..', 'src', 'data', 'dunhuang.json');
+const OUT_PATH = path.join(__dirname, '..', 'data', 'dunhuang.json');
 
 // 敦煌本"折"→宗宝本"品"映射
 const FOLD_TO_CHAPTER = {

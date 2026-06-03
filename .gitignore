@@ -9,4 +9,5 @@ Thumbs.db
 android/build-debug-log*.txt
 android/*.zip
 android/gradle/wrapper/dists/
+release/
 

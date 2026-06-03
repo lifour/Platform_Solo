@@ -9,9 +9,9 @@ const fs = require('fs');
 const path = require('path');
 const { pinyin } = require('pinyin-pro');
 
-const ZONGBAO = path.join(__dirname, '..', 'src', 'data', 'zongbao.json');
-const DUNHUANG = path.join(__dirname, '..', 'src', 'data', 'dunhuang.json');
-const OUT_PATH = path.join(__dirname, '..', 'src', 'data', 'pinyin.json');
+const ZONGBAO = path.join(__dirname, '..', 'data', 'zongbao.json');
+const DUNHUANG = path.join(__dirname, '..', 'data', 'dunhuang.json');
+const OUT_PATH = path.join(__dirname, '..', 'data', 'pinyin.json');
 
 // 收集所有句子文本
 function collectTexts(jsonPath) {

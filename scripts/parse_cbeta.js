@@ -8,7 +8,7 @@ const path = require('path');
 const { XMLParser } = require('fast-xml-parser');
 
 const RAW_PATH = path.join(__dirname, '..', 'raw', 'T48n2008.xml');
-const OUT_PATH = path.join(__dirname, '..', 'src', 'data', 'zongbao.json');
+const OUT_PATH = path.join(__dirname, '..', 'data', 'zongbao.json');
 
 // 章节名映射（宗宝本十品）
 const CHAPTER_NAMES = {

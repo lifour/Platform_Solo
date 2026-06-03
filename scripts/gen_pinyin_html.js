@@ -6,10 +6,10 @@ const fs = require('fs');
 const path = require('path');
 const { pinyin } = require('pinyin-pro');
 
-const ZONGBAO = path.join(__dirname, '..', 'src', 'data', 'zongbao.json');
-const DUNHUANG = path.join(__dirname, '..', 'src', 'data', 'dunhuang.json');
-const OUT_ZB = path.join(__dirname, '..', 'src', 'data', 'zongbao_pinyin.json');
-const OUT_DH = path.join(__dirname, '..', 'src', 'data', 'dunhuang_pinyin.json');
+const ZONGBAO = path.join(__dirname, '..', 'data', 'zongbao.json');
+const DUNHUANG = path.join(__dirname, '..', 'data', 'dunhuang.json');
+const OUT_ZB = path.join(__dirname, '..', 'data', 'zongbao_pinyin.json');
+const OUT_DH = path.join(__dirname, '..', 'data', 'dunhuang_pinyin.json');
 
 function rubyHtml(text) {
   const pyArr = pinyin(text, { toneType: 'symbol', type: 'array' });

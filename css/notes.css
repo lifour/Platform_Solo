@@ -1,0 +1,179 @@
+/* notes.css — 笔记面板与段落指示器 */
+
+/* 段落末尾的笔记数量指示小圆标 */
+.note-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  margin-left: 0.3rem;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  color: #fff;
+  font-size: 0.65rem;
+  cursor: pointer;
+  vertical-align: middle;
+  line-height: 1;
+}
+.note-indicator:hover { opacity: 0.8; }
+
+/* 笔记列表 */
+.notes-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+.note-item {
+  padding: 0.6rem 0.6rem;
+  border-bottom: 1px solid rgba(216, 200, 176, 0.18);
+}
+.note-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+.note-item-excerpt {
+  font-size: 0.85rem;
+  color: var(--ink-light);
+  margin-bottom: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.note-item-text {
+  font-size: 0.9rem;
+  color: var(--ink-main);
+  line-height: 1.6;
+}
+
+/* 行内笔记编辑器 */
+.note-editor {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.note-editor textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 0.5rem;
+  border: 1px solid var(--paper-edge);
+  border-radius: 6px;
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  resize: vertical;
+  background: var(--paper-bg);
+  box-sizing: border-box;
+}
+.note-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+/* ---- 统一标注面板 ---- */
+
+/* 标注面板 tab */
+.anno-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--paper-edge);
+  background: rgba(255,255,255,0.3);
+}
+.anno-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.6rem 0.5rem;
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  color: var(--ink-light);
+  cursor: pointer;
+  text-align: center;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.anno-tab.active {
+  color: var(--accent-gold);
+  border-bottom-color: var(--accent-gold);
+  font-weight: 600;
+}
+.anno-tab:hover { color: var(--accent-gold); }
+
+.annotations-list {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.anno-type-header {
+  font-size: 0.9rem;
+  color: var(--accent-gold);
+  font-weight: 700;
+  padding: 0.7rem 0.4rem 0.3rem;
+  border-bottom: 2px solid var(--accent-gold);
+  margin-top: 0.6rem;
+}
+.anno-type-header:first-child { margin-top: 0; }
+
+.anno-chapter-header {
+  font-size: 0.8rem;
+  color: var(--ink-light);
+  padding: 0.4rem 0.4rem 0.2rem 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.anno-item {
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid rgba(216, 200, 176, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.anno-item:last-child { border-bottom: none; }
+
+.anno-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.anno-color-dot {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.anno-color-dot--yellow  { background: #FFF176; }
+.anno-color-dot--green   { background: #A5D6A7; }
+.anno-color-dot--blue    { background: #90CAF9; }
+.anno-color-dot--pink    { background: #F48FB1; }
+.anno-color-dot--orange  { background: #FFCC80; }
+
+.anno-item-text {
+  font-size: 0.85rem;
+  color: var(--ink-main);
+  line-height: 1.6;
+}
+
+.anno-item-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+/* 段落标注指示器（金色小圆点） */
+.anno-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.anno-dot:hover { opacity: 1; }
