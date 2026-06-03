@@ -1,6 +1,6 @@
 {
   "name": "platform-solo-sutra",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "六祖坛经·阅藏 — 经折装数字阅读器",
   "private": true,
   "scripts": {
@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "android:sync": "npx cap copy android",
-    "android:build": "npm run android:sync && cd android && .\\gradlew assembleDebug"
+    "android:build": "npm run android:sync && cd android && .\\gradlew assembleDebug",
+    "release": "npm run build && npm run android:build && node -e \"const v=require('./package.json').version;require('fs').cpSync('android/app/build/outputs/apk/debug/app-debug.apk','release/platform-solo-sutra-v'+v+'.apk');console.log('✅ release/platform-solo-sutra-v'+v+'.apk')\""
   },
   "devDependencies": {
     "fast-xml-parser": "^4.5.0",
