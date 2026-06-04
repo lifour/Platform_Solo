@@ -54,15 +54,33 @@ export function setupTermInteraction() {
     hideTermBar();
   });
 
-  // 移动端长按
+  // 移动端：触击=操作栏，长按=释义浮层
   container.addEventListener('touchstart', e => {
     const target = e.target.closest('.term');
     if (!target) return;
-    e.preventDefault();
-    longPressTimer = setTimeout(() => showTooltip(target), 400);
-  }, { passive: false });
-  container.addEventListener('touchend', () => clearTimeout(longPressTimer));
-  container.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+    const startX = e.touches[0].clientX, startY = e.touches[0].clientY;
+    let moved = false;
+    const onMove = (ev) => {
+      const dx = ev.touches[0].clientX - startX, dy = ev.touches[0].clientY - startY;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved = true;
+    };
+    const onEnd = () => {
+      container.removeEventListener('touchmove', onMove);
+      container.removeEventListener('touchend', onEnd);
+      clearTimeout(longPressTimer);
+      if (moved) return;
+      // 短触击 → 操作栏
+      showTermBar(target);
+    };
+    container.addEventListener('touchmove', onMove, { passive: true });
+    container.addEventListener('touchend', onEnd, { passive: true });
+    // 长按 → 释义浮层
+    longPressTimer = setTimeout(() => {
+      container.removeEventListener('touchmove', onMove);
+      container.removeEventListener('touchend', onEnd);
+      showTooltip(target);
+    }, 300);
+  }, { passive: true });
 
   container.addEventListener('contextmenu', e => {
     if (e.target.closest('.term')) e.preventDefault();

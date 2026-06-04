@@ -100,6 +100,11 @@ export function initSelectionToolbar() {
   cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); hideToolbar(); });
   toolbar.appendChild(cancelBtn);
 
+  // 阻止系统长按菜单（划词用自定义工具栏）
+  document.querySelector('.scroll-container')?.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.para')) e.preventDefault();
+  });
+
   // 拖拽选中文字 → 显示工具栏
   document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();

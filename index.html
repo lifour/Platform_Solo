@@ -281,5 +281,13 @@
   <!-- 核心逻辑 -->
   <!-- 主入口 -->
   <script type="module" src="js/app.js"></script>
+  <script>
+    window.addEventListener('error', function(e) {
+      var msg = document.createElement('div');
+      msg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:red;color:#fff;padding:8px;z-index:9999;font-size:12px;word-break:break-all;';
+      msg.textContent = e.message || (e.error && e.error.message) || 'Error';
+      document.body.appendChild(msg);
+    });
+  </script>
 </body>
 </html>

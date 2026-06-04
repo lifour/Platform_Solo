@@ -7,6 +7,7 @@
  */
 
 import { store } from './store.js';
+import { speak as ttsSpeak } from './tts.js';
 
 /**
  * 查单个汉字（展示拼音 + 链接到 zdic.net）
@@ -172,16 +173,10 @@ function showLookupPanel({ title, char, pinyin, meaning, glossary, notFound, ext
     // 移除旧监听，添加新监听
     const newBtn = speakBtn.cloneNode(true);
     speakBtn.parentNode.replaceChild(newBtn, speakBtn);
-    newBtn.addEventListener('click', () => {
+    newBtn.addEventListener('click', async () => {
       const text = char || title.replace(/^查[词字]：/, '');
       if (text) {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'zh-CN';
-        u.rate = 1.0;
-        u.pitch = 1.0;
-        u.volume = 1.0;
-        window.speechSynthesis.speak(u);
+        try { await ttsSpeak(text, { rate: 1.0, pitch: 1.0, volume: 1.0 }); } catch (_) {}
       }
     });
   }

@@ -6,7 +6,6 @@ function copyStaticAssets() {
   return {
     name: 'copy-static-assets',
     closeBundle() {
-      // Copy data/ and fonts/ directories into dist/
       for (const dir of ['data', 'fonts']) {
         const src = path.resolve(__dirname, dir)
         const dest = path.resolve(__dirname, 'dist', dir)
@@ -20,8 +19,18 @@ function copyStaticAssets() {
 
 export default defineConfig({
   root: '.',
+  base: '',
   publicDir: false,
-  plugins: [copyStaticAssets()],
+  plugins: [
+    copyStaticAssets(),
+    // 移除 <script> 的 crossorigin 属性（Android 本地服务器无 CORS 头）
+    {
+      name: 'remove-crossorigin',
+      transformIndexHtml(html) {
+        return html.replace(/ crossorigin/g, '')
+      },
+    },
+  ],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

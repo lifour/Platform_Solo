@@ -182,6 +182,7 @@ body {
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  -webkit-touch-callout: none;
   /* 隐藏滚动条 */
   scrollbar-width: none;
   -ms-overflow-style: none;
