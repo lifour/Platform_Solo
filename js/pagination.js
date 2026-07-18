@@ -32,20 +32,20 @@ export function reflowFolds() {
     }
   }
 
-  // 逐折检测溢出，拆分到新折页
-  let iterations = 0;
-  while (iterations < 500) {
-    const overflowed = findOverflowingFold(container);
-    if (!overflowed) break;
-    iterations++;
+  // 逐折检测溢出，拆分到新折页（单次正向扫描）
+  const chapterFolds = Array.from(container.querySelectorAll('.fold'));
+  for (let i = 0; i < chapterFolds.length; i++) {
+    const fold = chapterFolds[i];
+    if (fold.scrollHeight <= fold.clientHeight + 2) continue;
 
-    const paras = Array.from(overflowed.querySelectorAll(':scope > .para'));
-    if (paras.length <= 1) break;
+    const paras = Array.from(fold.querySelectorAll(':scope > .para'));
+    if (paras.length <= 1) continue;
 
+    // 从尾部移除段落直到 fold 不再溢出
     const overflow = [];
-    while (paras.length > 1 && overflowed.scrollHeight > overflowed.clientHeight + 2) {
+    while (paras.length > 1 && fold.scrollHeight > fold.clientHeight + 2) {
       const last = paras.pop();
-      overflowed.removeChild(last);
+      fold.removeChild(last);
       overflow.unshift(last);
     }
 
@@ -53,7 +53,9 @@ export function reflowFolds() {
       const newFold = document.createElement('div');
       newFold.className = 'fold';
       overflow.forEach(p => newFold.appendChild(p));
-      overflowed.after(newFold);
+      fold.after(newFold);
+      // 将新 fold 加入扫描列表（它可能也会溢出）
+      chapterFolds.splice(i + 1, 0, newFold);
     }
   }
 }
@@ -88,25 +90,24 @@ export function reflowCompareFolds(container) {
       toRemove.remove();
     }
 
-    let iterations = 0;
-    while (iterations < 200) {
-      const cols = chFold.querySelectorAll('.compare-col');
+    // 收集该章的所有 fold（包括后续续页），正向扫描溢出
+    const groupFolds = [chFold];
+    let sib = chFold.nextElementSibling;
+    while (sib && !sib.classList.contains('fold--chapter-start')) {
+      groupFolds.push(sib);
+      sib = sib.nextElementSibling;
+    }
+
+    for (let fi = 0; fi < groupFolds.length; fi++) {
+      const fold = groupFolds[fi];
+      const cols = fold.querySelectorAll('.compare-col');
+
+      // 检查是否有任何列溢出
       let anyOverflow = false;
       for (const col of cols) {
-        if (col.scrollHeight > col.clientHeight + 2) {
-          anyOverflow = true;
-          break;
-        }
+        if (col.scrollHeight > col.clientHeight + 2) { anyOverflow = true; break; }
       }
-      if (!anyOverflow) break;
-      iterations++;
-
-      let insertAfter = chFold;
-      let sib = chFold.nextElementSibling;
-      while (sib && !sib.classList.contains('fold--chapter-start')) {
-        insertAfter = sib;
-        sib = sib.nextElementSibling;
-      }
+      if (!anyOverflow) continue;
 
       const newFold = document.createElement('div');
       newFold.className = 'fold compare-mode';
@@ -129,9 +130,8 @@ export function reflowCompareFolds(container) {
 
       const hasContent = Array.from(newFold.querySelectorAll('.para')).length > 0;
       if (hasContent) {
-        insertAfter.after(newFold);
-      } else {
-        break;
+        fold.after(newFold);
+        groupFolds.splice(fi + 1, 0, newFold);
       }
     }
   }

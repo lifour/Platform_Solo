@@ -222,34 +222,21 @@ function splitText(text) {
 
 // ---- 高亮 ----
 
-function highlightSentence(paraEl, text) {
-  if (!paraEl || !text) return;
-  const full = paraEl.textContent || '';
-  const idx = full.indexOf(text);
-  if (idx === -1) return;
-  const walker = document.createTreeWalker(paraEl, NodeFilter.SHOW_TEXT);
-  let offset = 0, startNode = null, startOff = 0, endNode = null, endOff = 0;
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    const len = node.textContent.length;
-    const nodeEnd = offset + len;
-    if (!startNode && idx < nodeEnd) { startNode = node; startOff = idx - offset; }
-    if (!endNode && idx + text.length <= nodeEnd) { endNode = node; endOff = idx + text.length - offset; break; }
-    offset = nodeEnd;
-  }
-  if (!startNode || !endNode) return;
-  try {
-    const range = document.createRange();
-    range.setStart(startNode, Math.max(0, startOff));
-    range.setEnd(endNode, Math.max(0, endOff));
-    const mark = document.createElement('mark');
-    mark.className = 'read-highlight';
-    range.surroundContents(mark);
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  } catch (_) {}
+let _activePara = null;
+
+function highlightSentence(paraEl, _text) {
+  clearHighlights();
+  if (!paraEl) return;
+  paraEl.classList.add('read-active');
+  _activePara = paraEl;
+  paraEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function clearHighlights() {
+  if (_activePara) {
+    _activePara.classList.remove('read-active');
+    _activePara = null;
+  }
   document.querySelectorAll('mark.read-highlight').forEach(m => {
     const parent = m.parentNode;
     parent.replaceChild(document.createTextNode(m.textContent), m);

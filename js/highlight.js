@@ -86,28 +86,9 @@ function wrapRangeInMark(paraEl, startOffset, endOffset, color) {
 /**
  * 简化版包裹（当 surroundContents 跨节点失败时的 fallback）
  */
-function trySimplifiedWrap(paraEl, startOffset, endOffset, color) {
-  // 获取段落的所有文本并构建 HTML
-  const fullText = paraEl.textContent;
-  // 清除所有高亮后代
-  paraEl.querySelectorAll('mark.hl-yellow, mark.hl-green, mark.hl-blue, mark.hl-pink, mark.hl-orange')
-    .forEach(m => {
-      const parent = m.parentNode;
-      parent.replaceChild(document.createTextNode(m.textContent), m);
-      parent.normalize();
-    });
-
-  // 重新渲染包含高亮的段落 HTML
-  // 使用 innerHTML 重建
-  const before = fullText.slice(0, startOffset);
-  const match = fullText.slice(startOffset, endOffset);
-  const after = fullText.slice(endOffset);
-
-  // 需要保留原有的术语标记
-  // 但这在新版本中通过重新渲染来解决
-  const hlHtml = `${escapeForHtml(before)}<mark class="hl-${color}">${escapeForHtml(match)}</mark>${escapeForHtml(after)}`;
-  // 注意：这会丢失 term 标记，需要在 document 级别的 applyHighlightsToDOM 之后由 render 机制保证
-  // 更好的方法是在 render 完成后立即调用 applyHighlightsToDOM
+function trySimplifiedWrap(_paraEl, _startOffset, _endOffset, _color) {
+  // surroundContents 失败通常是因为 range 跨了 term/ruby 等内联元素
+  // 此时不修改 DOM：高亮已保存到 IndexedDB，下次 rerender 后通过 applyHighlightsToDOM 恢复
 }
 
 function escapeForHtml(str) {

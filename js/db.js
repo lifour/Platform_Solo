@@ -54,7 +54,7 @@ export async function saveNote(note) {
     note.updatedAt = note.createdAt;
     store.add(note);
   }
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     tx.oncomplete = () => { db.close(); resolve(); };
     tx.onerror = () => { db.close(); reject(tx.error); };
   });
@@ -94,7 +94,7 @@ export async function getAllNotes() {
 
 export async function deleteNote(id) {
   const db = await openDB();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction('notes', 'readwrite');
     tx.objectStore('notes').delete(id);
     tx.oncomplete = () => { db.close(); resolve(); };
@@ -144,7 +144,7 @@ export async function getAllHighlights() {
 
 export async function deleteHighlight(id) {
   const db = await openDB();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction('highlights', 'readwrite');
     tx.objectStore('highlights').delete(id);
     tx.oncomplete = () => { db.close(); resolve(); };
@@ -157,7 +157,7 @@ export async function deleteHighlightsByParagraph(chapterId, paraId, edition) {
   const ids = highlights.map(h => h.id);
   if (ids.length === 0) return;
   const db = await openDB();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction('highlights', 'readwrite');
     const store = tx.objectStore('highlights');
     ids.forEach(id => store.delete(id));

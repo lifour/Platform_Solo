@@ -41,12 +41,14 @@ export function setupScroll() {
   flipShadow.className = 'flip-shadow';
   document.body.appendChild(flipShadow);
 
-  // 鼠标滚轮 → 逐页翻页
+  // 鼠标滚轮 → 逐页翻页（仅翻页模式拦截）
   container.addEventListener('wheel', e => {
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-    e.preventDefault();
     if (isFlipping) return;
-    if (store.get('displayMode') === 'paged') flipPage(e.deltaY > 0 ? 1 : -1);
+    if (store.get('displayMode') === 'paged') {
+      e.preventDefault();
+      flipPage(e.deltaY > 0 ? 1 : -1);
+    }
   }, { passive: false });
 
   // 键盘左右箭头

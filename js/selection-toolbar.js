@@ -226,13 +226,12 @@ async function handleHighlight(color) {
   const chapterId = getChapterId(activePara);
   const paraId = activePara.dataset.para;
   const edition = activePara.dataset.edition || '';
-  const fullText = activePara.textContent || '';
+  const text = range.toString();
+  if (!text) { hideToolbar(); return; }
 
-  if (range) {
-    const text = range.toString();
-    const startIdx = fullText.indexOf(text);
-    if (startIdx === -1) { hideToolbar(); return; }
-    await createHighlight(chapterId, paraId, edition, startIdx, startIdx + text.length, color, text);
+  const { startOffset, endOffset } = getRangeCharOffsets(range, activePara);
+  if (endOffset > startOffset) {
+    await createHighlight(chapterId, paraId, edition, startOffset, endOffset, color, text);
   }
   refreshAnnotationsIfOpen();
   hideToolbar();
@@ -245,13 +244,12 @@ async function handleClearHighlight() {
   const chapterId = getChapterId(activePara);
   const paraId = activePara.dataset.para;
   const edition = activePara.dataset.edition || '';
-  const fullText = activePara.textContent || '';
-  const text = range.toString();
-  const startIdx = fullText.indexOf(text);
-  if (startIdx === -1) { hideToolbar(); return; }
 
-  await clearHighlightsByRange(chapterId, paraId, edition, startIdx, startIdx + text.length);
-  removeHighlightsInRange(activePara, startIdx, startIdx + text.length);
+  const { startOffset, endOffset } = getRangeCharOffsets(range, activePara);
+  if (endOffset > startOffset) {
+    await clearHighlightsByRange(chapterId, paraId, edition, startOffset, endOffset);
+    removeHighlightsInRange(activePara, startOffset, endOffset);
+  }
   refreshAnnotationsIfOpen();
   hideToolbar();
 }
@@ -343,14 +341,16 @@ function handleBookmark() {
   } else {
     addBookmark(chapterId, paraId, excerpt);
     addAnnoDot(activePara);
-    // 添加绿色高亮
+    // 添加绿色高亮（使用 Range 精确定位）
     const edition = activePara.dataset.edition || '';
     const fullText = activePara.textContent || '';
-    const startIdx = selected ? fullText.indexOf(selected) : -1;
-    if (startIdx >= 0 && selected) {
-      createHighlight(chapterId, paraId, edition, startIdx, startIdx + selected.length, 'green', selected);
+    if (range && selected) {
+      const { startOffset, endOffset } = getRangeCharOffsets(range, activePara);
+      if (endOffset > startOffset) {
+        createHighlight(chapterId, paraId, edition, startOffset, endOffset, 'green', selected);
+      }
     } else {
-      createHighlight(chapterId, paraId, edition, 0, fullText.length, 'green', fullText.slice(0, 200));
+      createHighlight(chapterId, paraId, edition, 0, Math.min(fullText.length, 200), 'green', fullText.slice(0, 200));
     }
   }
   refreshAnnotationsIfOpen();
@@ -448,6 +448,38 @@ function isCJKChar(str) {
 function getChapterId(paraEl) {
   const fold = paraEl.closest('.fold');
   return fold ? fold.id : '';
+}
+
+/** 计算 Range 在段落中的字符偏移（用于精确定位高亮位置） */
+function getRangeCharOffsets(range, paraEl) {
+  const walker = document.createTreeWalker(paraEl, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  let startOffset = -1, endOffset = -1;
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const len = node.textContent.length;
+    if (startOffset === -1 && node === range.startContainer) {
+      startOffset = offset + range.startOffset;
+    }
+    if (startOffset === -1 && node.contains(range.startContainer)) {
+      // range.startContainer might be inside a nested text node
+      // walk deeper
+    }
+    if (node === range.endContainer) {
+      endOffset = offset + range.endOffset;
+      break;
+    }
+    offset += len;
+  }
+  // Fallback: if tree walker didn't find exact node match (cross-element range)
+  if (startOffset === -1) startOffset = 0;
+  if (endOffset === -1) {
+    const fullText = paraEl.textContent || '';
+    const selText = range.toString();
+    endOffset = fullText.indexOf(selText) + selText.length;
+    if (startOffset === 0) startOffset = endOffset - selText.length;
+  }
+  return { startOffset, endOffset };
 }
 
 function escapeHtml(str) {
