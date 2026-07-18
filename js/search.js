@@ -246,8 +246,10 @@ export function navigateToResult(result) {
 
   if (store.get('displayMode') === 'scroll') {
     const offset = getTopbarHeight();
-    const paraTop = paraEl.offsetTop;
-    container.scrollTo({ top: Math.max(0, paraTop - offset), behavior: 'smooth' });
+    const containerRect = container.getBoundingClientRect();
+    const paraRect = paraEl.getBoundingClientRect();
+    const scrollTarget = container.scrollTop + paraRect.top - containerRect.top - offset;
+    container.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
   } else {
     const fold = paraEl.closest('.fold');
     if (fold) fold.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });

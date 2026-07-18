@@ -10,7 +10,7 @@ import { store } from './store.js';
 import { splitSentences } from './utils.js';
 import { reflowFolds } from './pagination.js';
 import { applySimplifiedToContainer } from './ui-language.js';
-import { updateProgress } from './scroll.js';
+import { updateProgress, updateScrollPadding } from './scroll.js';
 
 let _resizeHandlerInstalled = false;
 
@@ -58,6 +58,7 @@ export function render() {
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
+        updateScrollPadding();
         const c = document.querySelector('.scroll-container');
         if (!c) return;
         const maxS = c.scrollWidth - c.clientWidth;
@@ -124,7 +125,7 @@ function renderNormalMode(container, select, termPattern) {
       li.textContent = chapter.title;
       li.addEventListener('click', () => {
         const tgt = document.getElementById(chapter.id);
-        if (tgt) tgt.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        if (tgt) tgt.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'start' });
         closeMobilePanel();
       });
       mobileList.appendChild(li);
@@ -190,7 +191,7 @@ function renderCompareMode(container, select, termPattern) {
       li.textContent = zbChapter.title;
       li.addEventListener('click', () => {
         const tgt = document.getElementById(zbChapter.id);
-        if (tgt) tgt.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        if (tgt) tgt.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'start' });
         closeMobilePanel();
       });
       mobileList.appendChild(li);

@@ -17,9 +17,24 @@ let isFlipping = false;
 /**
  * 设置所有滚动/翻页相关事件监听
  */
+function getTopbarHeight() {
+  const topbar = document.querySelector('.topbar');
+  if (!topbar) return 0;
+  return Math.round(topbar.getBoundingClientRect().height) + 4;
+}
+
+export function updateScrollPadding() {
+  const container = document.querySelector('.scroll-container');
+  if (!container) return;
+  container.style.scrollPaddingTop = getTopbarHeight() + 'px';
+}
+
 export function setupScroll() {
   const container = document.querySelector('.scroll-container');
   if (!container) return;
+
+  // 固定顶栏遮挡补偿
+  updateScrollPadding();
 
   // 翻页阴影遮罩
   const flipShadow = document.createElement('div');
@@ -246,7 +261,7 @@ export function setupNavigation() {
   select.addEventListener('change', () => {
     const target = document.getElementById(select.value);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+      target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'start' });
     }
   });
 }
