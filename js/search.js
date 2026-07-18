@@ -9,6 +9,7 @@ import { store } from './store.js';
 import { toTraditional } from './ui-language.js';
 import { escapeHtml } from './utils.js';
 import { debounce } from './utils.js';
+import { updateScrollPadding } from './scroll.js';
 
 /**
  * 设置搜索 UI 事件监听（搜索栏、移动端侧边面板、overlay、把手）
@@ -55,6 +56,7 @@ export function setupSearch() {
     topbarSearchRow.hidden = false;
     topbarEl.classList.add('searching');
     requestAnimationFrame(() => topbarSearchRow.classList.add('search-open'));
+    setTimeout(() => updateScrollPadding(), 200);
     input.focus();
   }
 
@@ -71,6 +73,7 @@ export function setupSearch() {
       topbarEl.classList.remove('searching');
       topbarSearchRow.hidden = true;
       searchCloseTimer = null;
+      updateScrollPadding();
     }, 180);
   }
 

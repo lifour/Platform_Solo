@@ -10,6 +10,7 @@
 import { store } from './store.js';
 import { UI_STRINGS, toTraditional } from './ui-language.js';
 import { rerender } from './render.js';
+import { updateScrollPadding } from './scroll.js';
 
 const TRADITIONAL_PREF_KEY = 'ui_traditional_v2';
 const COMPARE_MODE_PREF_KEY = 'ui_compare_mode';
@@ -145,6 +146,20 @@ function applySettings(fontPx, lineHeight) {
   document.documentElement.style.setProperty('--base-line-height', lineHeight);
   store.set('fontSize', fontPx);
   store.state._lineHeight = lineHeight;
+
+  // 同步更新 UI 数值标签
+  const fv = document.getElementById('font-size-value');
+  const lv = document.getElementById('line-height-value');
+  const fr = document.getElementById('font-size-range');
+  const lr = document.getElementById('line-height-range');
+  if (fv) fv.textContent = fontPx + 'px';
+  if (lv) lv.textContent = lineHeight.toFixed(2);
+  if (fr) fr.value = fontPx;
+  if (lr) lr.value = lineHeight;
+
+  // 字体变化会影响顶栏高度，同步更新滚动内边距
+  setTimeout(() => updateScrollPadding(), 50);
+
   try {
     localStorage.setItem(SETTINGS_KEYS.fontPx, fontPx.toString());
     localStorage.setItem(SETTINGS_KEYS.lineHeight, lineHeight.toString());
@@ -184,8 +199,6 @@ export function setupSettingsPanel() {
       if (sl) lh = parseFloat(sl);
     } catch (_) {}
     applySettings(f, lh);
-    if (fontSizeValue) fontSizeValue.textContent = f + 'px';
-    if (lineHeightValue) lineHeightValue.textContent = lh.toFixed(2);
   })();
 
   if (fontSizeRange) {
@@ -275,8 +288,6 @@ export function setupSettingsPanel() {
   if (settingsReset) {
     settingsReset.addEventListener('click', () => {
       applySettings(DEFAULT_FONT_PX, DEFAULT_LINE_HEIGHT);
-      if (fontSizeValue) fontSizeValue.textContent = DEFAULT_FONT_PX + 'px';
-      if (lineHeightValue) lineHeightValue.textContent = DEFAULT_LINE_HEIGHT.toFixed(2);
     });
   }
 }

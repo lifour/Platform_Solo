@@ -373,11 +373,22 @@ function handleReadSelection() {
   u.rate = parseFloat(document.getElementById('reader-speed')?.value || '1');
   u.pitch = 0.8;
   u.volume = 0.7;
+  u.onend = () => {
+    const playBtn = document.getElementById('reader-play');
+    if (playBtn) playBtn.textContent = '▶';
+    const bar = document.getElementById('reader-bar');
+    if (bar) bar.hidden = true;
+  };
+  u.onerror = () => {
+    const playBtn = document.getElementById('reader-play');
+    if (playBtn) playBtn.textContent = '▶';
+  };
   window.speechSynthesis.speak(u);
 
   const bar = document.getElementById('reader-bar');
   if (bar) bar.hidden = false;
-  document.getElementById('reader-play').textContent = '⏸';
+  const playBtn = document.getElementById('reader-play');
+  if (playBtn) playBtn.textContent = '⏸';
   hideToolbar();
 }
 
