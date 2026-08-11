@@ -45,7 +45,7 @@ export function setupReader() {
 
   document.querySelector('.scroll-container')?.addEventListener('click', (e) => {
     const para = e.target.closest('.para');
-    if (!para || e.target.closest('.term')) return;
+    if (!para || e.target.closest('.term, .bookmark-btn, .anno-dot, mark[class], button')) return;
     const bar = document.getElementById('reader-bar');
     if (!bar || bar.hidden) return;
     e.stopPropagation();

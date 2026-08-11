@@ -152,9 +152,9 @@ async function init() {
       closeLookupPanel();
     });
 
-    // 全局：点击 settings-panel 外部关闭（排除顶栏按钮）
+    // 全局：点击 settings-panel 外部关闭（排除顶栏按钮、术语、段落、工具栏）
     document.addEventListener('click', (e) => {
-      if (e.target.closest('.topbar-btn, .topbar-nav')) return;
+      if (e.target.closest('.topbar-btn, .topbar-nav, .term, .para, .sel-toolbar, .term-bar, .tooltip, .note-editor')) return;
       setTimeout(() => {
         document.querySelectorAll('.settings-panel').forEach(p => {
           if (!p.hidden && !p.contains(e.target)) p.hidden = true;

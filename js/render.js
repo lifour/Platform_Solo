@@ -24,7 +24,7 @@ export function render() {
   container.innerHTML = '';
 
   // 重置导航下拉
-  while (select.options.length > 1) select.remove(1);
+  if (select) { while (select.options.length > 1) select.remove(1); }
 
   // 清空移动端目录列表（避免 rerender 重复追加）
   const mobileList = document.getElementById('mobile-chapter-list');
