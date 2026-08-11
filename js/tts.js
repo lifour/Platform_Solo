@@ -1,7 +1,7 @@
 /**
  * tts.js — 跨平台朗读引擎
  *
- * 优先使用 Web Speech API（标准浏览器），
+ * 优先使用 Web Speech API（标准浏览器/部分 Android WebView），
  * 不支持时降级到 Capacitor TTS 原生插件（Android）。
  */
 import { Capacitor } from '@capacitor/core';
@@ -10,7 +10,7 @@ let _webSpeechOk = false;
 
 // 检测 Web Speech API 是否可用
 try {
-  _webSpeechOk = !!window.speechSynthesis;
+  _webSpeechOk = !!(window.speechSynthesis && window.speechSynthesis.getVoices);
 } catch (_) {}
 
 /**
@@ -26,13 +26,15 @@ export async function speak(text, options = {}) {
     return speakWeb(text, rate, pitch, volume);
   }
 
-  // 降级到 Capacitor 原生 TTS
+  // 只在原生平台降级到 Capacitor TTS
+  if (!Capacitor.isNativePlatform()) return;
+
   try {
     const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
     await TextToSpeech.speak({ text, lang: 'zh-CN', rate, pitch, volume });
     return 'capacitor';
   } catch (_) {
-    throw new Error('TTS不可用');
+    // TTS 不可用时静默失败
   }
 }
 
@@ -42,7 +44,9 @@ export async function speak(text, options = {}) {
 export async function stop() {
   if (_webSpeechOk) {
     try { window.speechSynthesis.cancel(); } catch (_) {}
+    return;
   }
+  if (!Capacitor.isNativePlatform()) return;
   try {
     const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
     await TextToSpeech.stop();
@@ -57,8 +61,8 @@ export async function pause() {
     try { window.speechSynthesis.pause(); } catch (_) {}
     return;
   }
-  // Capacitor TTS 不支持 pause，用 stop 代替
-  await stop();
+  if (!Capacitor.isNativePlatform()) return;
+  try { await stop(); } catch (_) {}
 }
 
 /**
@@ -69,7 +73,6 @@ export async function resume() {
     try { window.speechSynthesis.resume(); } catch (_) {}
     return;
   }
-  // 恢复需要重新 speak，由调用方处理
 }
 
 /**
