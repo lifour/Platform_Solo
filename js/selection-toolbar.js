@@ -11,6 +11,7 @@ import { lookupCharacter, lookupTerm } from './external-lookup.js';
 import { addBookmark, removeBookmark, isBookmarked } from './bookmarks.js';
 import { refreshAnnotationsIfOpen } from './annotations.js';
 import { readFromParagraph, stopReading, startReading } from './reader.js';
+import { speak as ttsSpeak, stop as ttsStop } from './tts.js';
 
 let toolbar = null;
 let activePara = null;
@@ -360,36 +361,34 @@ function handleBookmark() {
 // ---- 朗读 ----
 
 /** 朗读选中的文字 */
-function handleReadSelection() {
+async function handleReadSelection() {
   if (!activePara) return;
   const range = getActiveRange();
   if (!range) { hideToolbar(); return; }
   const text = range.toString().trim();
   if (!text) { hideToolbar(); return; }
 
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-CN';
-  u.rate = parseFloat(document.getElementById('reader-speed')?.value || '1');
-  u.pitch = 0.8;
-  u.volume = 0.7;
-  u.onend = () => {
-    const playBtn = document.getElementById('reader-play');
-    if (playBtn) playBtn.textContent = '▶';
-    const bar = document.getElementById('reader-bar');
-    if (bar) bar.hidden = true;
-  };
-  u.onerror = () => {
-    const playBtn = document.getElementById('reader-play');
-    if (playBtn) playBtn.textContent = '▶';
-  };
-  window.speechSynthesis.speak(u);
+  hideToolbar();
 
   const bar = document.getElementById('reader-bar');
   if (bar) bar.hidden = false;
   const playBtn = document.getElementById('reader-play');
   if (playBtn) playBtn.textContent = '⏸';
-  hideToolbar();
+
+  try {
+    await ttsStop();
+    await ttsSpeak(text, {
+      rate: parseFloat(document.getElementById('reader-speed')?.value || '1'),
+      pitch: 0.8,
+      volume: 0.7,
+      lang: 'zh-CN',
+    });
+  } catch (_) {
+    // TTS 不可用时静默失败
+  }
+
+  if (playBtn) playBtn.textContent = '▶';
+  if (bar) bar.hidden = true;
 }
 
 /** 从选中段落往下连续朗读 */
