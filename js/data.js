@@ -5,6 +5,7 @@ import { store } from './store.js';
 import { escapeRegex } from './utils.js';
 import { getBookById } from './book-registry.js';
 import { toSimplified } from './ui-language.js';
+import { buildSearchIndex } from './search-engine.js';
 
 /**
  * 初始化：加载 glossary + 敦煌本 + 拼音数据 + 默认书
@@ -73,6 +74,8 @@ export async function loadBookData(book) {
     const data = await res.json();
     store.set('sutraData', data);
     store.set('currentBookId', book.id);
+    // 重建搜索索引
+    try { buildSearchIndex(); } catch (_) {}
     return data;
   } catch (err) {
     console.error('加载书籍失败:', book.id, err);

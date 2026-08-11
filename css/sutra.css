@@ -1157,3 +1157,47 @@ input[type="range"]::-moz-range-thumb { width:20px; height:20px; border-radius:5
     font-size: 0.82rem;
   }
 }
+
+/* ---- 搜索增强样式 ---- */
+mark.search-highlight {
+  background: rgba(255, 235, 59, 0.35);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+mark.search-focus {
+  background: var(--accent-gold, #C8A96E);
+  color: #fff;
+  border-radius: 3px;
+  padding: 0 2px;
+  animation: search-focus-pulse 0.6s ease-in-out 3;
+}
+@keyframes search-focus-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.search-result-item {
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.search-result-item:hover,
+.search-result-item.search-result-active {
+  background: rgba(200, 169, 110, 0.12);
+}
+.search-edition-label {
+  font-size: 0.7rem;
+  color: var(--ink-light, #999);
+  margin-left: 0.4em;
+}
+.result-occurrence {
+  font-size: 0.7rem;
+  color: var(--ink-light, #999);
+  margin-left: 0.6em;
+}
+.search-result-note {
+  font-size: 0.8rem;
+  color: var(--ink-light, #999);
+  text-align: center;
+  padding: 0.5rem 0;
+}

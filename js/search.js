@@ -10,6 +10,7 @@ import { toTraditional } from './ui-language.js';
 import { escapeHtml } from './utils.js';
 import { debounce } from './utils.js';
 import { updateScrollPadding } from './scroll.js';
+import { search as fuseSearch, buildSearchIndex, getFuse } from './search-engine.js';
 
 /**
  * 设置搜索 UI 事件监听（搜索栏、移动端侧边面板、overlay、把手）
@@ -95,6 +96,31 @@ export function setupSearch() {
     doSearchDebounced(input.value.trim());
   });
 
+  // 键盘导航：↑↓ 切换结果，Enter 跳转
+  input.addEventListener('keydown', (e) => {
+    const searchPanel = document.getElementById('search-panel');
+    if (!searchPanel || searchPanel.hidden) return;
+
+    const items = searchPanel.querySelectorAll('.search-result-item');
+    if (items.length === 0) return;
+
+    const active = searchPanel.querySelector('.search-result-active');
+    const currentIdx = active ? [...items].indexOf(active) : -1;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIdx = currentIdx < items.length - 1 ? currentIdx + 1 : 0;
+      setActiveResultItem(items, currentIdx, nextIdx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIdx = currentIdx > 0 ? currentIdx - 1 : items.length - 1;
+      setActiveResultItem(items, currentIdx, prevIdx);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active) active.click();
+    }
+  });
+
   // 移动端搜索输入
   if (mobileInput) {
     mobileInput.addEventListener('input', () => {
@@ -168,7 +194,10 @@ export function doSearch(query, resultsList, countLabel, mobileResults, mobileCo
     return;
   }
 
-  // 简体自动转繁体
+  // 确保索引已构建
+  if (!getFuse()) buildSearchIndex();
+
+  // 简繁双查询
   const tQuery = toTraditional(query);
   const queries = [tQuery];
   if (tQuery !== query) queries.push(query);
@@ -176,54 +205,91 @@ export function doSearch(query, resultsList, countLabel, mobileResults, mobileCo
   const results = [];
   const seen = new Set();
 
-  // 仅搜索当前典籍
-  const bookId = store.get('currentBookId');
-  const dataSources = [{ data: store.state.sutraData, label: bookId === 'tanjing' ? '宗宝本' : '当前典籍' }];
-  // 坛经额外搜索敦煌本
-  if (bookId === 'tanjing') {
-    const dhData = store.get('dunhuangData');
-    if (dhData) dataSources.push({ data: dhData, label: '敦煌本' });
-  }
-
   for (const q of queries) {
-    for (const src of dataSources) {
-      if (!src.data || !src.data.chapters) continue;
-      src.data.chapters.forEach(chapter => {
-        (chapter.paragraphs || []).forEach(para => {
-          let idx = 0;
-          while ((idx = para.text.indexOf(q, idx)) !== -1) {
-            const key = `${src.label}:${para.id}:${idx}`;
-            if (seen.has(key)) { idx += q.length; continue; }
-            seen.add(key);
-            const ctxStart = Math.max(0, idx - 25);
-            const ctxEnd = Math.min(para.text.length, idx + q.length + 25);
-            const before = (ctxStart > 0 ? '…' : '') + para.text.slice(ctxStart, idx);
-            const match = para.text.slice(idx, idx + q.length);
-            const after = para.text.slice(idx + q.length, ctxEnd) + (ctxEnd < para.text.length ? '…' : '');
-            results.push({ chapterTitle: chapter.title, paraId: para.id, before, match, after, query: q, edition: src.label });
-            idx += q.length;
-          }
+    const fuseResults = fuseSearch(q);
+    for (const fr of fuseResults) {
+      const indices = fr.matches && fr.matches[0] ? fr.matches[0].indices : [];
+      if (indices.length === 0) {
+        const item = fr.item;
+        const key = `${item.edition}:${item.paraId}:0`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const idx = item.text.indexOf(q);
+        results.push({
+          chapterTitle: item.chapterTitle,
+          paraId: item.paraId,
+          edition: item.edition === 'dunhuang' ? '敦煌本' : '宗宝本',
+          query: q,
+          occurrenceOrdinal: 1,
+          totalOccurrences: 1,
+          matchStart: idx >= 0 ? idx : 0,
+          matchEnd: idx >= 0 ? idx + q.length : q.length,
+          before: '',
+          match: q,
+          after: '',
+          score: fr.score,
+        });
+        continue;
+      }
+
+      indices.forEach(([start, end], i) => {
+        const item = fr.item;
+        const key = `${item.edition}:${item.paraId}:${start}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        const ctxStart = Math.max(0, start - 25);
+        const ctxEnd = Math.min(item.text.length, end + 1 + 25);
+        results.push({
+          chapterTitle: item.chapterTitle,
+          paraId: item.paraId,
+          edition: item.edition === 'dunhuang' ? '敦煌本' : '宗宝本',
+          query: q,
+          occurrenceOrdinal: i + 1,
+          totalOccurrences: indices.length,
+          matchStart: start,
+          matchEnd: end + 1,
+          before: (ctxStart > 0 ? '…' : '') + item.text.slice(ctxStart, start),
+          match: item.text.slice(start, end + 1),
+          after: item.text.slice(end + 1, ctxEnd) + (ctxEnd < item.text.length ? '…' : ''),
+          score: fr.score,
         });
       });
     }
   }
+
+  // 按相关性排序
+  results.sort((a, b) => a.score - b.score);
 
   countLabel.textContent = results.length > 0 ? `${results.length} 处` : '无结果';
 
   const panel = document.getElementById('search-panel');
   if (panel) panel.hidden = results.length === 0;
 
-  results.slice(0, 100).forEach(r => {
+  const maxResults = 100;
+  const displayResults = results.slice(0, maxResults);
+
+  displayResults.forEach((r, idx) => {
     const li = document.createElement('li');
+    li.className = 'search-result-item';
+    if (idx === 0) li.classList.add('search-result-active');
     const edLabel = r.edition !== '宗宝本'
-      ? `<span style="font-size:0.7rem;color:var(--ink-light);margin-left:0.4em">${escapeHtml(r.edition)}</span>`
+      ? `<span class="search-edition-label">${escapeHtml(r.edition)}</span>`
       : '';
-    li.innerHTML = `<div class="result-chapter">${escapeHtml(r.chapterTitle)}${edLabel}</div>` +
+    li.innerHTML =
+      `<div class="result-chapter">${escapeHtml(r.chapterTitle)}${edLabel}<span class="result-occurrence">${r.occurrenceOrdinal}/${r.totalOccurrences}</span></div>` +
       `<div>${escapeHtml(r.before)}<mark>${escapeHtml(r.match)}</mark>${escapeHtml(r.after)}</div>`;
     li.addEventListener('click', () => navigateToResult(r));
     try { li.setAttribute('data-payload', encodeURIComponent(JSON.stringify(r))); } catch (_) {}
     resultsList.appendChild(li);
   });
+
+  if (results.length > maxResults) {
+    const note = document.createElement('li');
+    note.className = 'search-result-note';
+    note.textContent = `仅显示前 ${maxResults} 条（共 ${results.length} 处）`;
+    resultsList.appendChild(note);
+  }
 
   // 同步移动端
   if (mobileResults) {
@@ -234,31 +300,50 @@ export function doSearch(query, resultsList, countLabel, mobileResults, mobileCo
 }
 
 /**
- * 跳转到搜索结果段落
+ * 跳转到搜索结果段落（跨 chunk 精确定位）
  */
 export function navigateToResult(result) {
   closeSearch();
 
+  // 找到目标段落 DOM 元素（可能有多个 chunk 共享同一 data-para）
   let selector = `.para[data-para="${result.paraId}"]`;
-  if (result.edition === '敦煌本') selector = `.para[data-para="${result.paraId}"][data-edition="dh"]`;
-  const paraEl = document.querySelector(selector) || document.querySelector(`.para[data-para="${result.paraId}"]`);
-  if (!paraEl) return;
+  if (result.edition === '敦煌本') selector += '[data-edition="dh"]';
+  const allEls = [...document.querySelectorAll(selector)];
+  if (allEls.length === 0) return;
 
+  // 根据 matchStart 在全文中的偏移，定位到正确的 chunk
+  let accumulated = 0;
+  let targetEl = allEls[0];
+  for (const el of allEls) {
+    const len = el.textContent.length;
+    if (accumulated + len > result.matchStart) {
+      targetEl = el;
+      break;
+    }
+    accumulated += len;
+  }
+
+  // 滚动到目标段落
   const container = document.querySelector('.scroll-container');
   if (!container) return;
 
   if (store.get('displayMode') === 'scroll') {
-    const offset = getTopbarHeight();
+    const topbarH = getTopbarHeight();
     const containerRect = container.getBoundingClientRect();
-    const paraRect = paraEl.getBoundingClientRect();
-    const scrollTarget = container.scrollTop + paraRect.top - containerRect.top - offset;
+    const elRect = targetEl.getBoundingClientRect();
+    const scrollTarget = container.scrollTop + elRect.top - containerRect.top - topbarH;
     container.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
   } else {
-    const fold = paraEl.closest('.fold');
+    const fold = targetEl.closest('.fold');
     if (fold) fold.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
   }
 
-  setTimeout(() => highlightInElement(paraEl, result.query), 550);
+  // 等高亮 DOM 稳定后高亮
+  setTimeout(() => {
+    highlightAllMatches(targetEl, result.query);
+    const focusRange = findOccurrenceRange(targetEl, result.query, result.occurrenceOrdinal);
+    if (focusRange) applyFocusHighlight(focusRange);
+  }, 450);
 }
 
 function closeSearch() {
@@ -278,9 +363,9 @@ function getTopbarHeight() {
 }
 
 /**
- * 在元素内高亮第一个搜索匹配
+ * 高亮段落内所有匹配项
  */
-export function highlightInElement(el, query) {
+function highlightAllMatches(el, query) {
   clearSearchHighlights();
   if (!el || !query) return;
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -288,25 +373,85 @@ export function highlightInElement(el, query) {
   while (walker.nextNode()) textNodes.push(walker.currentNode);
 
   for (const node of textNodes) {
-    const idx = node.textContent.indexOf(query);
-    if (idx === -1) continue;
-    const range = document.createRange();
-    range.setStart(node, idx);
-    range.setEnd(node, idx + query.length);
-    const mark = document.createElement('mark');
-    mark.className = 'search-highlight';
-    range.surroundContents(mark);
-    break;
+    let idx = 0;
+    while ((idx = node.textContent.indexOf(query, idx)) !== -1) {
+      const range = document.createRange();
+      range.setStart(node, idx);
+      range.setEnd(node, idx + query.length);
+      try {
+        const mark = document.createElement('mark');
+        mark.className = 'search-highlight';
+        range.surroundContents(mark);
+      } catch (_) {
+        // 跨节点 range 无法 surroundContents，跳过
+      }
+      idx += query.length;
+    }
   }
 }
 
 /**
- * 清除所有搜索高亮
+ * 在元素内定位第 N 个匹配出现位置
+ */
+function findOccurrenceRange(el, query, targetOrdinal) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let n = 0;
+  while (walker.nextNode()) {
+    let idx = 0;
+    while ((idx = walker.currentNode.textContent.indexOf(query, idx)) !== -1) {
+      n++;
+      if (n >= targetOrdinal) {
+        const range = document.createRange();
+        range.setStart(walker.currentNode, idx);
+        range.setEnd(walker.currentNode, idx + query.length);
+        return range;
+      }
+      idx += query.length;
+    }
+  }
+  return null;
+}
+
+/**
+ * 对当前跳转目标应用焦点高亮样式
+ */
+function applyFocusHighlight(range) {
+  try {
+    const mark = document.createElement('mark');
+    mark.className = 'search-focus';
+    range.surroundContents(mark);
+    setTimeout(() => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize();
+      }
+    }, 2500);
+  } catch (_) {
+    // 跨节点 range 无法 surroundContents，跳过
+  }
+}
+
+/**
+ * 清除所有搜索高亮（包括普通高亮和焦点高亮）
  */
 export function clearSearchHighlights() {
-  document.querySelectorAll('mark.search-highlight').forEach(mark => {
+  document.querySelectorAll('mark.search-highlight, mark.search-focus').forEach(mark => {
     const parent = mark.parentNode;
-    parent.replaceChild(document.createTextNode(mark.textContent), mark);
-    parent.normalize();
+    if (parent) {
+      parent.replaceChild(document.createTextNode(mark.textContent), mark);
+      parent.normalize();
+    }
   });
+}
+
+/**
+ * 切换键盘导航的选中结果项
+ */
+function setActiveResultItem(items, oldIdx, newIdx) {
+  if (oldIdx >= 0 && items[oldIdx]) items[oldIdx].classList.remove('search-result-active');
+  if (items[newIdx]) {
+    items[newIdx].classList.add('search-result-active');
+    items[newIdx].scrollIntoView({ block: 'nearest' });
+  }
 }
