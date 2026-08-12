@@ -8,21 +8,34 @@
 
 ## 团队协作统一规范
 
-两个系统**开发流程完全一样**，这些命令在 Windows 和 Mac 上效果相同：
+Windows 和 Mac **开发没有任何区别**：
+
+| 方面 | 是否有区别 | 说明 |
+|------|-----------|------|
+| 命令 | ❌ 完全相同 | `git pull`、`npm run dev`、`npm run build` 两边一样 |
+| 代码 | ❌ 完全相同 | 同一套 HTML/CSS/JS，Git 统一管理 |
+| 样式 | ❌ 完全相同 | 网页看的是浏览器，不是操作系统 |
+| 字体 | ❌ 完全相同 | 项目自带霞鹜文楷，不依赖系统字体 |
+| 浏览器预览 | ❌ 完全相同 | 都是 `localhost:5173` |
+| 启动脚本 | ✅ 不同 | Windows 双击 `start.bat`，Mac 终端执行 `bash start.sh` |
+| 打包 APK | ✅ 仅 Windows | Mac 不需要，直接用网页测试或等上线 |
+
+两个系统日常用的命令完全一样：
 
 ```bash
 git pull          # 拉取最新代码
-npm install        # 安装依赖
-npm run dev        # 启动本地预览（浏览器打开 localhost:5173）
+npm install        # 安装依赖（首次或新增依赖时）
+npm run dev        # 启动本地预览 → 浏览器打开 localhost:5173
 npm run build      # 构建生产版本
 ```
 
-**启动脚本**（可选，双击即可）：
+**启动项目**：
 
-| 系统 | 文件 |
+| 系统 | 方式 |
 |------|------|
-| Windows | 双击 `start.bat` |
-| Mac | 终端执行 `bash start.sh` |
+| Windows | 双击 `start.bat`，自动安装依赖并启动 |
+| Mac | 终端执行 `bash start.sh`，自动安装依赖并启动 |
+| 或手敲 | 以上命令任意系统通用 |
 
 **Git 已配置统一换行符**（`.gitattributes`），两个系统编辑同一文件不会冲突。
 
