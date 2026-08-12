@@ -163,5 +163,5 @@ Platform_Solo/
 
 ## 九、线上地址
 
-- 网页版：`https://sutra.onemooring.xyz`
+- 网页版：`https://book.onemooring.xyz`
 - 每天凌晨 4 点自动更新
