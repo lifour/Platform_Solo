@@ -8,19 +8,10 @@
 
 ### Mac 电脑
 
-1. **选一个 AI 编程工具**（Codex / Cursor / Claude Code 等都可以）
-
-2. **安装 Homebrew**（Mac 的软件管家），打开终端粘贴：
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-3. **安装 Git 和 Node.js**，终端粘贴：
-   ```bash
-   brew install git node
-   ```
-
-4. **克隆项目**：
+1. 选一个 AI 编程工具（Codex / Cursor / Claude Code 等都可以）
+2. 安装 **Git**：https://git-scm.com/download/mac
+3. 安装 **Node.js 20+**：https://nodejs.org/ （选 LTS，装 `.pkg` 版本）
+4. 打开终端（在"启动台 → 其他 → 终端"），粘贴：
    ```bash
    cd ~/Documents
    git clone https://github.com/lifour/Platform_Solo.git
@@ -167,7 +158,6 @@ Platform_Solo/
 2. 常见自救：
    - `npm install` 报错 → 删掉 `node_modules` 文件夹，重新 `npm install`
    - 页面打不开 → 确认 `npm run dev` 在运行
-   - Mac 提示 command not found → 先装 Homebrew（见第一节）
    - git push 报错 → 先 `git pull` 再 `git push`
 
 ---
