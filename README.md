@@ -8,7 +8,7 @@
 
 ### Mac 电脑
 
-1. **安装 VS Code** — https://code.visualstudio.com/
+1. **选一个 AI 编程工具**（Codex / Cursor / Claude Code 等都可以）
 
 2. **安装 Homebrew**（Mac 的软件管家），打开终端粘贴：
    ```bash
@@ -30,7 +30,7 @@
 
 ### Windows 电脑
 
-1. 安装 **VS Code**：https://code.visualstudio.com/
+1. 选一个 AI 编程工具（Codex / Claude Code 等都可以）
 2. 安装 **Git**：https://git-scm.com/download/win
 3. 安装 **Node.js 20+**：https://nodejs.org/ （选 LTS）
 4. 打开终端（PowerShell）：
