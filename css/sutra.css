@@ -736,11 +736,16 @@ button.icon-close-button .sf-icon--close {
 
 /* 正文搜索高亮 */
 mark.search-highlight {
-  background: rgba(184, 155, 114, 0.45);
+  background: rgba(184, 155, 114, 0.30);
   color: var(--ink-main);
   border-radius: 2px;
   padding: 0 1px;
-  animation: hlPulse 1.5s ease-out;
+}
+
+mark.search-highlight-current {
+  background: rgba(156, 113, 55, 0.62);
+  box-shadow: 0 0 0 2px rgba(156,113,55,.22);
+  animation: hlPulse 1.1s ease-out;
 }
 
 mark.reader-note-highlight {
@@ -1498,7 +1503,7 @@ input[type="range"]::-moz-range-thumb { width:20px; height:20px; border-radius:5
   .cloud-library-panel {
     position: fixed;
     z-index: 2300;
-    top: calc(var(--safe-top) + 10px);
+    top: calc(var(--safe-top) + 8px);
     right: calc(var(--safe-right) + 10px);
     bottom: 0;
     left: calc(var(--safe-left) + 10px);
@@ -2606,11 +2611,156 @@ body {
 
 .search-compact-btn,
 .search-history,
-.search-overlay {
+.search-overlay,
+.search-result-status,
+.search-result-nav {
   display: none;
 }
 
 @media (max-width: 480px) {
+  .search-result-status,
+  .search-result-nav {
+    position: fixed;
+    z-index: 1500;
+    right: calc(var(--safe-right) + 24px);
+    left: calc(var(--safe-left) + 24px);
+    color: rgba(64,56,48,.82);
+    border: 1px solid rgba(255,255,255,.78);
+    background:
+      radial-gradient(ellipse 70% 120% at 22% -40%, rgba(255,255,255,.72), transparent 68%),
+      linear-gradient(145deg, rgba(255,255,255,.54), rgba(248,246,239,.46) 58%, rgba(229,223,207,.34));
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    backdrop-filter: blur(18px) saturate(145%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.90),
+      inset 0 -1px 0 rgba(82,69,59,.06),
+      0 10px 28px rgba(72,61,49,.11);
+    pointer-events: auto;
+  }
+
+  .search-result-status:not([hidden]) {
+    top: calc(var(--safe-top) + 10px);
+    min-height: 66px;
+    padding: 7px 12px;
+    display: grid;
+    grid-template-columns: 42px minmax(0,1fr) 42px;
+    align-items: center;
+    gap: 8px;
+    border-radius: 24px;
+    corner-shape: squircle;
+  }
+
+  .search-result-status-menu {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    justify-self: center;
+    color: rgba(64,56,48,.52);
+    display: grid;
+    place-items: center;
+  }
+
+  .search-result-menu-icon {
+    width: 19px;
+    height: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .search-result-menu-icon i {
+    display: block;
+    width: 19px;
+    height: 1.5px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .search-result-status-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    text-align: center;
+    letter-spacing: 0;
+  }
+
+  .search-result-status-copy strong {
+    max-width: 100%;
+    overflow: hidden;
+    font: 500 15px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-result-status-copy small {
+    max-width: 100%;
+    overflow: hidden;
+    color: rgba(64,56,48,.48);
+    font: 400 12px/1.25 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #search-result-exit {
+    width: 34px;
+    height: 34px;
+    justify-self: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: rgba(248,246,239,.96);
+    background: rgba(82,69,59,.34);
+    display: grid;
+    place-items: center;
+    line-height: 0;
+  }
+
+  #search-result-exit .sf-icon { width: 16px; height: 16px; }
+
+  .search-result-nav:not([hidden]) {
+    bottom: calc(var(--safe-bottom) + 12px);
+    min-height: 68px;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    align-items: stretch;
+    overflow: hidden;
+    border-radius: 25px;
+    corner-shape: squircle;
+  }
+
+  .search-result-nav button {
+    min-width: 0;
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    border: 0;
+    border-left: 1px solid rgba(82,69,59,.12);
+    border-radius: 0;
+    color: rgba(64,56,48,.60);
+    background: transparent;
+    font: 400 11px/1.15 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    letter-spacing: 0;
+  }
+
+  .search-result-nav button:first-child { border-left: 0; }
+  .search-result-nav button > span:first-child { font-size: 24px; line-height: 1; }
+  .search-result-nav button:first-child .sf-icon { width: 23px; height: 23px; }
+  .search-result-nav button:disabled { opacity: .32; }
+
+  body.search-result-mode .reader-mobile-topbar,
+  body.search-result-mode .mobile-tabbar {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
   .topbar.searching {
     z-index: 1500;
     background: transparent;
@@ -2622,47 +2772,80 @@ body {
   }
 
   .topbar.searching .topbar-main {
-    min-height: 0;
-    height: 0;
-    padding: 0;
+    /* 搜索层采用 fixed 覆盖；保留原顶栏几何占位，正文分页尺寸不会跳变。 */
+    min-height: 52px;
+    height: auto;
+    padding: 0.25rem 1rem;
     border: 0;
   }
 
   .topbar.searching .topbar-search-row {
     position: fixed;
-    top: 38.2dvh;
-    left: 50%;
+    top: calc(var(--safe-top) + 10px);
+    right: calc(var(--safe-right) + 24px);
+    left: auto;
     z-index: 3;
     display: flex;
-    width: calc(100vw - 2rem - var(--safe-left) - var(--safe-right));
+    width: calc(100vw - 48px - var(--safe-left) - var(--safe-right));
     max-width: 34rem;
-    height: 60px;
+    height: 52px;
     min-width: 0;
-    padding: 0 0.55rem 0 1rem;
-    gap: 0.65rem;
-    transform: translate(-50%, -50%);
+    padding: 0 16px;
+    gap: 10px;
+    transform: none;
+    transform-origin: right center;
     overflow: hidden;
     pointer-events: auto;
     color: var(--ink-main);
-    background:
-      linear-gradient(145deg, rgba(255,255,255,0.72), rgba(248,246,239,0.50) 58%, rgba(229,223,207,0.38));
-    border: 1px solid rgba(255,255,255,0.82);
-    border-radius: 30px;
-    corner-shape: squircle;
-    -webkit-backdrop-filter: blur(18px) saturate(145%);
-    backdrop-filter: blur(18px) saturate(145%);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.88),
-      inset 0 -1px 0 rgba(82,69,59,0.06),
-      0 10px 28px rgba(72,61,49,0.13);
-    transition:
-      top 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-      left 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-      width 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-      height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-      padding 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-      border-radius 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-      transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    background: rgba(248,246,239,.70);
+    border: 1px solid rgba(255,255,255,.72);
+    border-radius: 999px;
+    corner-shape: round;
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+    box-shadow: inset 0 1px rgba(255,255,255,.9), 0 8px 22px rgba(72,61,49,.09);
+    animation: readerSearchCapsuleExpand .38s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes readerSearchCapsuleExpand {
+    from {
+      width: 52px;
+      padding-right: 14px;
+      padding-left: 14px;
+      opacity: .78;
+    }
+    to {
+      width: calc(100vw - 48px - var(--safe-left) - var(--safe-right));
+      padding-right: 16px;
+      padding-left: 16px;
+      opacity: 1;
+    }
+  }
+
+  .topbar.searching.search-closing .topbar-search-row {
+    animation: readerSearchCapsuleCollapse .36s cubic-bezier(.4,0,.2,1) both;
+    pointer-events: none;
+  }
+
+  @keyframes readerSearchCapsuleCollapse {
+    from {
+      width: calc(100vw - 48px - var(--safe-left) - var(--safe-right));
+      padding-right: 16px;
+      padding-left: 16px;
+      opacity: 1;
+    }
+    to {
+      width: 52px;
+      padding-right: 14px;
+      padding-left: 14px;
+      opacity: .82;
+    }
+  }
+
+  .topbar.searching.search-closing .topbar-search-row input,
+  .topbar.searching.search-closing .topbar-search-row #search-count {
+    opacity: 0;
+    transition: opacity .12s ease;
   }
 
   .topbar.searching .topbar-search-row input {
@@ -2670,6 +2853,12 @@ body {
     padding: 0;
     font-size: 16px !important;
     appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .topbar.searching .topbar-search-row input::-webkit-search-cancel-button,
+  .topbar.searching .topbar-search-row input::-webkit-search-decoration {
+    display: none;
     -webkit-appearance: none;
   }
 
@@ -2681,15 +2870,6 @@ body {
 
   .topbar.searching #search-settings-btn {
     display: none !important;
-  }
-
-  .topbar.searching #search-close {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    border: 0;
-    border-radius: 50%;
-    font-size: 1rem;
   }
 
   .search-overlay {
@@ -2704,6 +2884,14 @@ body {
     animation: searchOverlayIn 0.24s ease both;
   }
 
+  .topbar.search-closing .search-overlay,
+  .topbar.search-closing .search-panel,
+  .topbar.search-closing .search-history {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .16s ease;
+  }
+
   @keyframes searchOverlayIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -2711,13 +2899,14 @@ body {
 
   .search-history {
     position: fixed;
-    top: calc(38.2dvh + 44px);
-    left: 50%;
+    top: calc(var(--safe-top) + 70px);
+    right: calc(var(--safe-right) + 24px);
+    left: auto;
     z-index: 2;
     display: block;
-    width: calc(100vw - 2rem - var(--safe-left) - var(--safe-right));
+    width: calc(100vw - 48px - var(--safe-left) - var(--safe-right));
     max-width: 34rem;
-    transform: translateX(-50%);
+    transform: none;
     pointer-events: auto;
     color: var(--ink-main);
   }
@@ -2727,7 +2916,7 @@ body {
     align-items: center;
     justify-content: space-between;
     min-height: 44px;
-    padding: 0 0.2rem 0 0.75rem;
+    padding: 0 8px;
     color: var(--ink-muted);
     font-size: 0.82rem;
     letter-spacing: 0.08em;
@@ -2744,12 +2933,28 @@ body {
     background: transparent;
     border: 0;
     border-radius: 50%;
+    background: transparent !important;
+    border-color: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    font: 400 14px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    letter-spacing: 0;
   }
 
   .search-history-clear .sf-icon {
-    width: 19px;
-    height: 19px;
+    width: 25px;
+    height: 25px;
   }
+
+  .search-history-clear-text { display: none; }
+  .search-history.is-editing .search-history-clear {
+    width: auto;
+    min-width: 44px;
+    padding: 0 4px;
+  }
+  .search-history.is-editing .search-history-clear .sf-icon { display: none; }
+  .search-history.is-editing .search-history-clear-text { display: inline; }
 
   .search-history-list {
     display: flex;
@@ -2760,7 +2965,7 @@ body {
   .search-history-pill {
     min-height: 36px;
     max-width: 100%;
-    padding: 0.46rem 0.85rem;
+    padding: 0;
     overflow: hidden;
     color: var(--ink-muted);
     background: rgba(255,255,255,0.40);
@@ -2773,10 +2978,41 @@ body {
     font-size: 0.86rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
   }
 
-  .search-history.is-empty .search-history-head {
+  .search-history-query,
+  .search-history-delete {
+    min-height: 36px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  .search-history-query {
+    min-width: 0;
+    max-width: min(62vw, 260px);
+    padding: 0.46rem 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .search-history-delete {
     display: none;
+    width: 34px;
+    padding: 0 8px 1px 0;
+    color: rgba(64,56,48,.58);
+    font-size: 21px;
+    line-height: 1;
+  }
+  .search-history.is-editing .search-history-delete { display: inline-grid; place-items: center; }
+  .search-history.is-editing .search-history-query { padding-right: 6px; pointer-events: none; }
+
+  /* 清空记录只移除历史词条，保留“最近搜索”标题。 */
+  .search-history.is-empty .search-history-clear {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .topbar.search-compact .topbar-search-row {
@@ -2793,8 +3029,7 @@ body {
   .topbar.search-compact .search-field-icon,
   .topbar.search-compact #search-input,
   .topbar.search-compact #search-count,
-  .topbar.search-compact #search-settings-btn,
-  .topbar.search-compact #search-close {
+  .topbar.search-compact #search-settings-btn {
     display: none !important;
   }
 
@@ -2820,7 +3055,7 @@ body {
 
   .topbar.searching .search-panel {
     position: fixed;
-    top: calc(var(--safe-top) + 4.9rem);
+    top: calc(var(--safe-top) + 70px);
     right: 0;
     bottom: 0;
     left: 0;
@@ -2838,6 +3073,11 @@ body {
     box-shadow: 0 -8px 28px rgba(72,61,49,0.08);
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* 实时搜索时输入框保持展开，结果紧接在输入框下方；提交后仍沿用顶部收起布局。 */
+  .topbar.searching:not(.search-compact) .search-panel {
+    top: calc(var(--safe-top) + 70px);
   }
 
   .topbar.searching .search-results {
@@ -2996,7 +3236,6 @@ button,
   .search-compact-btn,
   .topbar.searching .topbar-search-row,
   .search-history-pill,
-  .search-history-clear,
   .topbar-btn,
   .small-btn,
   .lighthouse-coming {
@@ -3460,6 +3699,8 @@ html.native-liquid-glass .topbar .side-handle {
     -webkit-backdrop-filter: blur(22px) saturate(112%);
     contain: layout paint;
     transform: translateZ(0);
+    isolation: isolate;
+    pointer-events: auto;
   }
   .font-custom-menu[hidden] { display: none !important; }
   .font-menu-option { width: 100%; min-height: 54px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: #1c1b19; display: flex; align-items: center; gap: 12px; font-size: 19px; text-align: left; }
@@ -3469,6 +3710,12 @@ html.native-liquid-glass .topbar .side-handle {
   .font-menu-option--system { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
   .font-menu-option--wenkai { font-family: "LXGW WenKai", "Kaiti SC", "KaiTi", serif; }
   .font-menu-option--source-serif { font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", serif; }
+
+  body.font-menu-open #display-mode-select,
+  body.font-menu-open .setting-script-controls,
+  body.font-menu-open .setting-edition-controls {
+    pointer-events: none !important;
+  }
 
   .setting-shortcut.is-active {
     color: #8a602b;
@@ -4266,8 +4513,6 @@ html.native-liquid-glass .topbar .side-handle {
   .reader-mobile-topbar-button,
   .topbar-btn,
   .topbar.search-compact .search-compact-btn,
-  .topbar.searching #search-close,
-  .search-history-clear,
   .setting-script-button,
   button.icon-close-button,
   .highlight-actions .icon-close-button {
@@ -4300,4 +4545,110 @@ html.native-liquid-glass .topbar .side-handle {
     height: 248px !important;
     max-height: min(248px, calc(100dvh - var(--safe-top) - 120px)) !important;
   }
+
+  /* 设置的二级选择器：与设置卡片共用边距、底线、玻璃与圆角，整卡上下滑入/退出。 */
+  .setting-choice-panel.reader-tool-panel {
+    height: 248px !important;
+    max-height: min(248px, calc(100dvh - var(--safe-top) - 120px)) !important;
+    padding: 0 !important;
+  }
+
+  .setting-choice-header {
+    height: 58px;
+    padding: 8px 14px 0;
+    display: grid;
+    grid-template-columns: 48px 1fr 48px;
+    align-items: center;
+    box-sizing: border-box;
+  }
+
+  .setting-choice-header h2 {
+    margin: 0;
+    color: #403830;
+    font-size: 17px;
+    line-height: 1.25;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .setting-choice-collapse,
+  .setting-choice-header-spacer {
+    width: 48px;
+    height: 48px;
+  }
+
+  .setting-choice-collapse {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: var(--tool-radius) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    display: grid !important;
+    place-items: center;
+  }
+
+  .setting-choice-collapse > span {
+    width: 13px;
+    height: 13px;
+    margin-top: -5px;
+    border-right: 2.5px solid #403830;
+    border-bottom: 2.5px solid #403830;
+    transform: rotate(45deg);
+  }
+
+  .setting-choice-options {
+    height: calc(100% - 58px);
+    padding: 6px 16px 16px;
+    display: grid;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 8px;
+    box-sizing: border-box;
+  }
+
+  .setting-choice-options > button,
+  .reader-tool-panel .setting-choice-options > button {
+    width: 100% !important;
+    min-height: 0 !important;
+    padding: 0 18px !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--tool-radius) !important;
+    background: var(--tool-surface) !important;
+    color: #403830 !important;
+    box-shadow: none !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 17px !important;
+    font-weight: 400 !important;
+    text-align: left;
+  }
+
+  .setting-choice-options > button.is-selected {
+    border-color: rgba(138, 96, 43, .5) !important;
+    background: var(--tool-surface-active) !important;
+    color: #795326 !important;
+  }
+
+  .setting-choice-check {
+    width: 24px;
+    opacity: 0;
+    color: #8a602b;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .setting-choice-options > button.is-selected .setting-choice-check { opacity: 1; }
+
+  /* 翻页方式只有两项：卡片更轻薄，并拉开层次，避免两块连续填充显得臃肿。 */
+  #page-mode-panel .setting-choice-options {
+    grid-template-rows: repeat(2, 58px);
+    grid-auto-rows: 58px;
+    align-content: center;
+    gap: 16px;
+  }
+
+  .setting-font-option--system { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif !important; }
+  .setting-font-option--wenkai { font-family: "LXGW WenKai", "Kaiti SC", "KaiTi", serif !important; }
+  .setting-font-option--source-serif { font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", serif !important; }
 }

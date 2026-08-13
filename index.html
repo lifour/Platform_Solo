@@ -39,7 +39,6 @@
         <input id="search-input" type="search" placeholder="搜经文…" autocomplete="off" enterkeyhint="search" aria-label="搜索经文">
         <span id="search-count" class="search-count"></span>
         <button id="search-settings-btn" class="topbar-btn" aria-label="设置">⚙</button>
-        <button id="search-close" class="topbar-btn icon-close-button" aria-label="关闭"><span class="sf-icon sf-icon--close" aria-hidden="true"></span></button>
         <button id="search-compact-btn" class="search-compact-btn" type="button" aria-label="展开搜索" hidden>
           <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
         </button>
@@ -51,9 +50,10 @@
     </div>
     <section id="search-history" class="search-history" aria-label="搜索历史" hidden>
       <div class="search-history-head">
-        <span>最近搜索</span>
+        <span>搜索历史</span>
         <button id="search-history-clear" class="search-history-clear" type="button" aria-label="清空搜索历史">
           <span class="sf-icon sf-icon--trash" aria-hidden="true"></span>
+          <span class="search-history-clear-text">清空</span>
         </button>
       </div>
       <div id="search-history-list" class="search-history-list"></div>
@@ -145,6 +145,33 @@
     </span>
     <button id="reader-mobile-search" class="reader-mobile-topbar-button" type="button" aria-label="搜索经文">
       <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
+    </button>
+  </nav>
+
+  <!-- 搜索结果浏览态：退出输入后保留标记，普通翻页始终可用。 -->
+  <aside id="search-result-status" class="search-result-status" aria-live="polite" hidden>
+    <button id="search-result-status-reopen" class="search-result-status-menu" type="button" aria-label="返回搜索展示界面">
+      <span class="search-result-menu-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+    </button>
+    <span class="search-result-status-copy">
+      <strong id="search-result-summary"></strong>
+      <small id="search-result-chapter"></small>
+    </span>
+    <button id="search-result-exit" type="button" aria-label="退出搜索标记"><span class="sf-icon sf-icon--close" aria-hidden="true"></span></button>
+  </aside>
+
+  <nav id="search-result-nav" class="search-result-nav" aria-label="搜索结果导航" hidden>
+    <button id="search-result-reopen" type="button">
+      <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
+      <span>搜索结果</span>
+    </button>
+    <button id="search-result-prev" type="button">
+      <span aria-hidden="true">←</span>
+      <span>上一个</span>
+    </button>
+    <button id="search-result-next" type="button">
+      <span aria-hidden="true">→</span>
+      <span>下一个结果</span>
     </button>
   </nav>
 
@@ -311,29 +338,24 @@
       <div class="setting-shortcuts" aria-label="其他阅读设置">
         <div class="setting-shortcut setting-font-picker">
           <span id="font-style-label">字体样式</span><span aria-hidden="true">›</span>
-          <button id="font-menu-trigger" type="button" aria-label="字体样式" aria-haspopup="menu" aria-expanded="false"></button>
+          <button id="font-menu-trigger" type="button" aria-label="选择字体样式" aria-haspopup="dialog" aria-expanded="false"></button>
           <select id="font-select" aria-label="字体样式" hidden>
             <option class="font-option font-option--system" value="'PingFang SC', 'Helvetica Neue', Arial, sans-serif">系统字体</option>
             <option class="font-option font-option--wenkai" value="'LXGW WenKai', 'Kaiti SC', 'KaiTi', 'STKaiti', serif">霞鹜文楷</option>
             <option class="font-option font-option--source-serif" value="'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif">思源宋体</option>
           </select>
-          <div id="font-custom-menu" class="font-custom-menu" role="menu" hidden>
-            <button class="font-menu-option font-menu-option--system" type="button" role="menuitemradio" data-font-index="0"><span class="font-menu-check">✓</span><span>系统字体</span></button>
-            <button class="font-menu-option font-menu-option--wenkai" type="button" role="menuitemradio" data-font-index="1"><span class="font-menu-check">✓</span><span>霞鹜文楷</span></button>
-            <button class="font-menu-option font-menu-option--source-serif" type="button" role="menuitemradio" data-font-index="2"><span class="font-menu-check">✓</span><span>思源宋体</span></button>
-          </div>
         </div>
         <div class="setting-script-controls" aria-label="正文文字设置">
           <button id="setting-traditional-mode" class="setting-script-button" type="button" aria-label="繁简切换" aria-pressed="false">繁</button>
           <button id="setting-pinyin-mode" class="setting-script-button" type="button" aria-label="拼音切换" aria-pressed="false">拼</button>
         </div>
-        <label class="setting-shortcut">
+        <button id="page-mode-trigger" class="setting-shortcut" type="button" aria-haspopup="dialog" aria-expanded="false">
           <span id="page-mode-label">滑动显示</span><span aria-hidden="true">›</span>
-          <select id="display-mode-select" aria-label="翻页模式">
-            <option value="scroll">滑动显示</option>
-            <option value="paged">仿真翻页</option>
-          </select>
-        </label>
+        </button>
+        <select id="display-mode-select" aria-label="翻页模式" hidden>
+          <option value="scroll">滑动显示</option>
+          <option value="horizontal">左右滑动</option>
+        </select>
       </div>
       <div class="setting-edition-controls" aria-label="经文版本设置">
         <button id="setting-edition-switch" class="setting-edition-button" type="button" aria-label="切换经文版本">
@@ -343,6 +365,31 @@
           <span>对照阅读</span><strong>宗宝本 · 敦煌本</strong>
         </button>
       </div>
+    </div>
+  </aside>
+
+  <aside id="page-mode-panel" class="setting-choice-panel reader-tool-panel" hidden aria-labelledby="page-mode-title">
+    <header class="setting-choice-header">
+      <button id="page-mode-back" class="setting-choice-collapse" type="button" aria-label="收起翻页方式"><span aria-hidden="true"></span></button>
+      <h2 id="page-mode-title">翻页方式</h2>
+      <span class="setting-choice-header-spacer" aria-hidden="true"></span>
+    </header>
+    <div class="setting-choice-options" role="radiogroup" aria-label="翻页方式">
+      <button type="button" role="radio" data-display-mode="horizontal"><span>左右滑动</span><span class="setting-choice-check" aria-hidden="true">✓</span></button>
+      <button type="button" role="radio" data-display-mode="scroll"><span>上下滚动</span><span class="setting-choice-check" aria-hidden="true">✓</span></button>
+    </div>
+  </aside>
+
+  <aside id="font-style-panel" class="setting-choice-panel reader-tool-panel" hidden aria-labelledby="font-style-title">
+    <header class="setting-choice-header">
+      <button id="font-style-back" class="setting-choice-collapse" type="button" aria-label="收起字体样式"><span aria-hidden="true"></span></button>
+      <h2 id="font-style-title">字体样式</h2>
+      <span class="setting-choice-header-spacer" aria-hidden="true"></span>
+    </header>
+    <div class="setting-choice-options" role="radiogroup" aria-label="字体样式">
+      <button class="setting-font-option setting-font-option--system" type="button" role="radio" data-font-index="0"><span>系统字体</span><span class="setting-choice-check" aria-hidden="true">✓</span></button>
+      <button class="setting-font-option setting-font-option--wenkai" type="button" role="radio" data-font-index="1"><span>霞鹜文楷</span><span class="setting-choice-check" aria-hidden="true">✓</span></button>
+      <button class="setting-font-option setting-font-option--source-serif" type="button" role="radio" data-font-index="2"><span>思源宋体</span><span class="setting-choice-check" aria-hidden="true">✓</span></button>
     </div>
   </aside>
   <!-- 核心逻辑 -->

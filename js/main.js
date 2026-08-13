@@ -419,20 +419,40 @@ function setupLiquidInteractions() {
   if (initialIndex >= 0) moveTabIndicator(initialIndex);
 }
 
-// display mode: 'scroll' or 'paged'
+// display mode: vertical scroll or Web horizontal paging
 let displayMode = 'scroll';
 
+function isPaginatedDisplayMode(mode = displayMode) {
+  return mode === 'horizontal';
+}
+
+function displayModeLabel(mode = displayMode) {
+  if (mode === 'horizontal') return '左右滑动';
+  return '滑动显示';
+}
+
+function syncDisplayModeChoices() {
+  document.querySelectorAll('[data-display-mode]').forEach(option => {
+    const selected = option.dataset.displayMode === (compareMode ? 'horizontal' : displayMode);
+    option.classList.toggle('is-selected', selected);
+    option.setAttribute('aria-checked', selected ? 'true' : 'false');
+  });
+}
+
 function applyDisplayMode(mode) {
-  displayMode = mode === 'paged' ? 'paged' : 'scroll';
+  // 旧版曾保存 paged（仿真翻页）；升级后统一迁移为左右滑动。
+  displayMode = mode === 'horizontal' || mode === 'paged' ? 'horizontal' : 'scroll';
   document.body.classList.toggle('mode-scroll', displayMode === 'scroll');
-  document.body.classList.toggle('mode-paged', displayMode === 'paged');
+  document.body.classList.toggle('mode-paged', isPaginatedDisplayMode());
+  document.body.classList.toggle('mode-horizontal', displayMode === 'horizontal');
   try { localStorage.setItem('ui_display_mode', displayMode); } catch(e){}
   const modeLabel = document.getElementById('page-mode-label');
   if (modeLabel) modeLabel.textContent = compareMode
-    ? '仿真翻页'
-    : (displayMode === 'paged' ? '仿真翻页' : '滑动显示');
+    ? '左右滑动'
+    : displayModeLabel();
   const displaySelect = document.getElementById('display-mode-select');
-  if (displaySelect) displaySelect.value = compareMode ? 'paged' : displayMode;
+  if (displaySelect) displaySelect.value = compareMode ? 'horizontal' : displayMode;
+  syncDisplayModeChoices();
   if (_hasRendered) rerender();
   postNativePageCurlVisibility();
 }
@@ -452,15 +472,21 @@ function applyCompareMode(enabled) {
   settingButton?.setAttribute('aria-pressed', compareMode ? 'true' : 'false');
   document.body.classList.toggle('compare-reading', compareMode);
   const displaySelect = document.getElementById('display-mode-select');
+  const pageModeTrigger = document.getElementById('page-mode-trigger');
   const modeLabel = document.getElementById('page-mode-label');
   if (displaySelect) {
     displaySelect.disabled = compareMode;
     // 对照阅读使用独立的横向分页器，不改写用户原有的单本阅读偏好。
-    displaySelect.value = compareMode ? 'paged' : displayMode;
+    displaySelect.value = compareMode ? 'horizontal' : displayMode;
+  }
+  if (pageModeTrigger) {
+    pageModeTrigger.disabled = compareMode;
+    pageModeTrigger.setAttribute('aria-disabled', compareMode ? 'true' : 'false');
   }
   if (modeLabel) modeLabel.textContent = compareMode
-    ? '仿真翻页'
-    : (displayMode === 'paged' ? '仿真翻页' : '滑动显示');
+    ? '左右滑动'
+    : displayModeLabel();
+  syncDisplayModeChoices();
 }
 
 function initCompareMode() {
@@ -522,9 +548,20 @@ function render() {
   // 窗口尺寸变化时重新分页
   if (!window._resizeHandlerInstalled) {
     let resizeTimer;
+    let lastReaderViewportWidth = window.innerWidth;
+    let lastReaderViewportHeight = window.innerHeight;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
+        const nextWidth = window.innerWidth;
+        const nextHeight = window.innerHeight;
+        const widthChanged = Math.abs(nextWidth - lastReaderViewportWidth) > 1;
+        const heightChanged = Math.abs(nextHeight - lastReaderViewportHeight) > 1;
+        lastReaderViewportWidth = nextWidth;
+        lastReaderViewportHeight = nextHeight;
+        // 手机软键盘只会改变可视高度；这不是阅读版面变化，不能触发重新分页。
+        // 横竖屏切换会改变宽度，仍按正常流程回流。桌面窗口缩放继续兼容宽高变化。
+        if (isMobileReader() ? !widthChanged : (!widthChanged && !heightChanged)) return;
         const c = document.querySelector('.scroll-container');
         const maxS = c.scrollWidth - c.clientWidth;
         const ratio = maxS > 0 ? c.scrollLeft / maxS : 0;
@@ -2032,7 +2069,7 @@ function rerender() {
     const anchorIndex = Math.round((transitionAnchor?.paragraphProgress || 0) * Math.max(0, anchoredParagraphs.length - 1));
     const anchoredParagraph = anchoredParagraphs[anchorIndex] || anchoredParagraphs[0] || null;
     const anchoredFold = anchoredParagraph?.closest('.fold');
-    if (anchoredFold && displayMode === 'paged') {
+    if (anchoredFold && isPaginatedDisplayMode()) {
       container.scrollLeft = anchoredFold.offsetLeft;
     } else if (anchoredParagraph && displayMode === 'scroll') {
       const containerRect = container.getBoundingClientRect();
@@ -2055,7 +2092,7 @@ function repaginateReaderLayout() {
   const container = document.querySelector('.scroll-container');
   if (!container) return;
 
-  if (displayMode !== 'paged') {
+  if (!isPaginatedDisplayMode()) {
     updateProgress();
     syncNativePageCurl();
     return;
@@ -2105,7 +2142,7 @@ function setupScroll() {
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     e.preventDefault();
     if (isFlipping) return;
-    if (displayMode === 'paged') flipPage(e.deltaY > 0 ? 1 : -1);
+    if (isPaginatedDisplayMode()) flipPage(e.deltaY > 0 ? 1 : -1);
   }, { passive: false });
 
   // 键盘左右箭头翻页（搜索面板开启时跳过）
@@ -2114,9 +2151,9 @@ function setupScroll() {
     const searchOpen = document.getElementById('search-panel') && !document.getElementById('search-panel').hidden;
     if (searchOpen) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      if (displayMode === 'paged') { e.preventDefault(); flipPage(1); }
+      if (isPaginatedDisplayMode()) { e.preventDefault(); flipPage(1); }
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      if (displayMode === 'paged') { e.preventDefault(); flipPage(-1); }
+      if (isPaginatedDisplayMode()) { e.preventDefault(); flipPage(-1); }
     }
   });
 
@@ -2128,7 +2165,7 @@ function setupScroll() {
     const x = e.clientX - rect.left;
     const w = rect.width;
     // 左/右边缘点击翻页
-      if (displayMode === 'paged') {
+      if (isPaginatedDisplayMode()) {
         if (x < w * 0.15) flipPage(-1);
         else if (x > w * 0.85) flipPage(1);
       }
@@ -2173,9 +2210,9 @@ function setupScroll() {
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) && dt < 700) {
       // 如果起点在右侧区域，则右侧滑动控制翻页
       if (startX > w * 0.6) {
-        if (displayMode === 'paged') flipPage(dx < 0 ? 1 : -1);
+        if (isPaginatedDisplayMode()) flipPage(dx < 0 ? 1 : -1);
       } else if (startX < w * 0.4) {
-        if (displayMode === 'paged') flipPage(dx > 0 ? -1 : 1);
+        if (isPaginatedDisplayMode()) flipPage(dx > 0 ? -1 : 1);
       }
       return;
     }
@@ -2189,9 +2226,9 @@ function setupScroll() {
       }
       // 如果起点在右侧区域，则右侧滑动控制翻页
       if (startX > w * 0.6) {
-        if (displayMode === 'paged') flipPage(dx < 0 ? 1 : -1);
+        if (isPaginatedDisplayMode()) flipPage(dx < 0 ? 1 : -1);
       } else if (startX < w * 0.4) {
-        if (displayMode === 'paged') flipPage(dx > 0 ? -1 : 1);
+        if (isPaginatedDisplayMode()) flipPage(dx > 0 ? -1 : 1);
       }
       return;
     }
@@ -2408,11 +2445,13 @@ function navigateToChapter(chapterID) {
     isFlipping = false;
     nativePageCurlRequestedIndex = pageIndex;
     container.scrollTo({ left: targetLeft, behavior: 'auto' });
-    nativeUIHandler()?.postMessage({
-      pageCurlEnabled: true,
-      pageCurlSuspended: false,
-      pageCurlCurrentIndex: pageIndex
-    });
+    if (displayMode === 'paged') {
+      nativeUIHandler()?.postMessage({
+        pageCurlEnabled: true,
+        pageCurlSuspended: false,
+        pageCurlCurrentIndex: pageIndex
+      });
+    }
   }
 
   const select = document.getElementById('chapter-select');
@@ -2640,7 +2679,6 @@ function setupSearch() {
   const btn = document.getElementById('search-btn');
   const panel = document.getElementById('search-panel');
   const input = document.getElementById('search-input');
-  const closeBtn = document.getElementById('search-close');
   const resultsList = document.getElementById('search-results');
   const countLabel = document.getElementById('search-count');
   const compactBtn = document.getElementById('search-compact-btn');
@@ -2648,6 +2686,15 @@ function setupSearch() {
   const searchHistoryList = document.getElementById('search-history-list');
   const searchHistoryClear = document.getElementById('search-history-clear');
   const searchOverlay = document.getElementById('search-overlay');
+  const resultStatus = document.getElementById('search-result-status');
+  const resultSummary = document.getElementById('search-result-summary');
+  const resultChapter = document.getElementById('search-result-chapter');
+  const resultExit = document.getElementById('search-result-exit');
+  const resultStatusReopen = document.getElementById('search-result-status-reopen');
+  const resultNav = document.getElementById('search-result-nav');
+  const resultReopen = document.getElementById('search-result-reopen');
+  const resultPrev = document.getElementById('search-result-prev');
+  const resultNext = document.getElementById('search-result-next');
   const settingsBtn = document.getElementById('search-settings-btn');
   const topSettingsBtn = document.getElementById('top-search-settings');
   const settingsPanel = document.getElementById('settings-panel');
@@ -2658,7 +2705,11 @@ function setupSearch() {
   const fontSizeValue = document.getElementById('font-size-value');
   const fontSelect = document.getElementById('font-select');
   const fontMenuTrigger = document.getElementById('font-menu-trigger');
-  const fontCustomMenu = document.getElementById('font-custom-menu');
+  const fontStylePanel = document.getElementById('font-style-panel');
+  const fontStyleBack = document.getElementById('font-style-back');
+  const pageModeTrigger = document.getElementById('page-mode-trigger');
+  const pageModePanel = document.getElementById('page-mode-panel');
+  const pageModeBack = document.getElementById('page-mode-back');
   const lineHeightRange = document.getElementById('line-height-range');
   const lineHeightDecr = document.getElementById('line-height-decr');
   const lineHeightIncr = document.getElementById('line-height-incr');
@@ -2692,6 +2743,11 @@ function setupSearch() {
   const libraryPanel = document.getElementById('library-panel');
 
   let debounceTimer = null;
+  let searchInputComposing = false;
+  let activeSearchQuery = '';
+  let activeSearchResults = [];
+  let activeSearchResultIndex = -1;
+  let searchHistoryEditing = false;
   const SEARCH_HISTORY_KEY = 'sutra_search_history';
   const SEARCH_HISTORY_LIMIT = 20;
   const PANEL_TRANSITION_MS = 360;
@@ -2715,16 +2771,34 @@ function setupSearch() {
   function renderSearchHistory() {
     if (!searchHistoryList || !searchHistory) return;
     const items = loadSearchHistory();
+    if (!items.length) searchHistoryEditing = false;
+    searchHistory.classList.toggle('is-editing', searchHistoryEditing);
     searchHistoryList.innerHTML = '';
     items.forEach(query => {
-      const item = document.createElement('button');
-      item.type = 'button';
+      const item = document.createElement('div');
       item.className = 'search-history-pill';
-      item.textContent = query;
-      item.addEventListener('click', () => {
+      const queryButton = document.createElement('button');
+      queryButton.type = 'button';
+      queryButton.className = 'search-history-query';
+      queryButton.textContent = query;
+      queryButton.addEventListener('click', () => {
+        if (searchHistoryEditing) return;
         input.value = query;
         commitSearch(query);
       });
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'search-history-delete';
+      deleteButton.setAttribute('aria-label', `删除搜索历史“${query}”`);
+      deleteButton.textContent = '×';
+      deleteButton.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const nextItems = loadSearchHistory().filter(item => item !== query);
+        try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(nextItems)); } catch(e) {}
+        renderSearchHistory();
+      });
+      item.append(queryButton, deleteButton);
       searchHistoryList.appendChild(item);
     });
     searchHistory.classList.toggle('is-empty', items.length === 0);
@@ -2748,11 +2822,40 @@ function setupSearch() {
     element._hideTimer = setTimeout(() => { element.hidden = true; }, PANEL_TRANSITION_MS);
   }
 
+  function closeSettingChoicePanels() {
+    hideAnimatedPanel(pageModePanel);
+    hideAnimatedPanel(fontStylePanel);
+    pageModeTrigger?.setAttribute('aria-expanded', 'false');
+    fontMenuTrigger?.setAttribute('aria-expanded', 'false');
+  }
+
+  function openSettingChoicePanel(panel, trigger) {
+    if (!panel || !trigger || trigger.disabled) return;
+    hideAnimatedPanel(settingsPanel);
+    closeSettingChoicePanels();
+    showAnimatedPanel(panel);
+    trigger.setAttribute('aria-expanded', 'true');
+    if (panelOverlay) panelOverlay.hidden = false;
+    document.body.classList.add('reader-panel-open');
+    document.getElementById('mobile-settings-btn')?.classList.add('active');
+    if (isMobileReader()) setReaderChromeVisible(true);
+  }
+
+  function returnChoicePanelToSettings(panel, trigger) {
+    hideAnimatedPanel(panel);
+    trigger?.setAttribute('aria-expanded', 'false');
+    setTimeout(() => {
+      if (!document.body.classList.contains('reader-panel-open')) return;
+      showAnimatedPanel(settingsPanel);
+    }, 150);
+  }
+
   function openSettingsPanel() {
     closeSidePanel();
     closeLighthousePanel();
     closeNotesPanel();
     closeLibraryPanel();
+    closeSettingChoicePanels();
     showAnimatedPanel(settingsPanel);
     if (panelOverlay) panelOverlay.hidden = false;
     const button = document.getElementById('mobile-settings-btn');
@@ -2762,8 +2865,7 @@ function setupSearch() {
   }
 
   function closeSettingsPanel() {
-    if (fontCustomMenu) fontCustomMenu.hidden = true;
-    fontMenuTrigger?.setAttribute('aria-expanded', 'false');
+    closeSettingChoicePanels();
     hideAnimatedPanel(settingsPanel);
     const button = document.getElementById('mobile-settings-btn');
     if (button) button.classList.remove('active');
@@ -3617,13 +3719,20 @@ function setupSearch() {
     displaySelect.value = displayMode;
     displaySelect.addEventListener('change', () => applyDisplayMode(displaySelect.value));
   }
+  pageModeTrigger?.addEventListener('click', () => {
+    syncDisplayModeChoices();
+    openSettingChoicePanel(pageModePanel, pageModeTrigger);
+  });
+  pageModeBack?.addEventListener('click', () => returnChoicePanelToSettings(pageModePanel, pageModeTrigger));
+  pageModePanel?.querySelectorAll('[data-display-mode]').forEach(option => {
+    option.addEventListener('click', () => {
+      if (compareMode) return;
+      applyDisplayMode(option.dataset.displayMode || 'scroll');
+      returnChoicePanelToSettings(pageModePanel, pageModeTrigger);
+    });
+  });
 
   // font selector wiring
-  // 菜单必须脱离带 backdrop-filter/overflow 的设置面板；否则 WKWebView 会把 fixed 子层裁掉。
-  if (fontCustomMenu && fontCustomMenu.parentElement !== document.body) {
-    document.body.appendChild(fontCustomMenu);
-  }
-
   // 在浏览器空闲时预热菜单中会用到的少量字形，避免首次点击才解析字体。
   const warmFontMenuPreviews = () => {
     if (!document.fonts?.load) return;
@@ -3642,8 +3751,13 @@ function setupSearch() {
       const syncFontChoicePreview = () => {
         const option = fontSelect.options[fontSelect.selectedIndex];
         const family = option?.value || "-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+        const fontStyleLabel = document.getElementById('font-style-label');
+        if (fontStyleLabel) {
+          fontStyleLabel.textContent = option?.textContent?.trim() || '系统字体';
+          fontStyleLabel.style.fontFamily = family;
+        }
         fontSelect.style.fontFamily = family;
-        fontCustomMenu?.querySelectorAll('.font-menu-option').forEach((item, index) => {
+        fontStylePanel?.querySelectorAll('[data-font-index]').forEach((item, index) => {
           const selected = index === fontSelect.selectedIndex;
           item.classList.toggle('is-selected', selected);
           item.setAttribute('aria-checked', selected ? 'true' : 'false');
@@ -3672,19 +3786,17 @@ function setupSearch() {
     }
   } catch(e) {}
 
-  fontMenuTrigger?.addEventListener('click', () => {
-    const willOpen = fontCustomMenu?.hidden ?? true;
-    if (fontCustomMenu) fontCustomMenu.hidden = !willOpen;
-    fontMenuTrigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-  });
-  fontCustomMenu?.querySelectorAll('.font-menu-option').forEach(item => {
-    item.addEventListener('click', () => {
+  fontMenuTrigger?.addEventListener('click', () => openSettingChoicePanel(fontStylePanel, fontMenuTrigger));
+  fontStyleBack?.addEventListener('click', () => returnChoicePanelToSettings(fontStylePanel, fontMenuTrigger));
+  fontStylePanel?.querySelectorAll('[data-font-index]').forEach(item => {
+    item.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
       const index = Number(item.dataset.fontIndex);
       if (!fontSelect || !Number.isInteger(index)) return;
       fontSelect.selectedIndex = index;
       fontSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      fontCustomMenu.hidden = true;
-      fontMenuTrigger?.setAttribute('aria-expanded', 'false');
+      returnChoicePanelToSettings(fontStylePanel, fontMenuTrigger);
     });
   });
 
@@ -3747,6 +3859,12 @@ function setupSearch() {
   }
 
   function openPanel() {
+    // 每次打开都是新的搜索会话，不能残留上一次的关键词、数量和结果。
+    searchHistoryEditing = false;
+    input.value = '';
+    countLabel.textContent = '';
+    resultsList.innerHTML = '';
+    panel.classList.remove('is-empty-results');
     const topbarSearchRow = document.getElementById('topbar-search-row');
     topbarEl.classList.add('searching');
     document.body.classList.add('reader-search-open');
@@ -3775,24 +3893,43 @@ function setupSearch() {
     if (!normalized) return;
     storeSearchHistory(normalized);
     renderSearchHistory();
-    topbarEl.classList.add('search-compact');
     if (searchHistory) searchHistory.hidden = true;
-    if (compactBtn) compactBtn.hidden = false;
-    try { input.blur(); } catch(e) {}
     doSearch(normalized);
   }
 
-  function closePanel() {
+  function closePanel({ preserveMarks = false, animate = true } = {}) {
     clearTimeout(debounceTimer);
+    searchInputComposing = false;
+    searchHistoryEditing = false;
+    searchHistory?.classList.remove('is-editing');
+    input.value = '';
+    countLabel.textContent = '';
+    resultsList.innerHTML = '';
+    panel.classList.remove('is-empty-results');
+    if (mobileInput) mobileInput.value = '';
+    if (mobileCount) mobileCount.textContent = '';
+    if (mobileResults) {
+      mobileResults.innerHTML = '';
+      mobileResults.classList.remove('visible');
+    }
     const topbarSearchRow = document.getElementById('topbar-search-row');
-    topbarEl.classList.remove('searching', 'search-compact');
+    const shouldAnimate = animate && isMobileReader() && topbarSearchRow && topbarEl.classList.contains('searching');
+    topbarEl.classList.remove('search-compact');
+    if (shouldAnimate) topbarEl.classList.add('search-closing');
+    else topbarEl.classList.remove('searching', 'search-closing');
     document.body.classList.remove('reader-search-open');
-    if (topbarSearchRow) topbarSearchRow.hidden = true;
+    if (topbarSearchRow && !shouldAnimate) topbarSearchRow.hidden = true;
     if (compactBtn) compactBtn.hidden = true;
     if (searchHistory) searchHistory.hidden = true;
     if (searchOverlay) searchOverlay.hidden = true;
     panel.hidden = true;
-    clearSearchHighlights();
+    if (!preserveMarks) clearSearchHighlights();
+    // 搜索期间原生翻页层处于暂停状态。关闭后显式恢复可见性，避免仅依赖
+    // class 的异步观察，在部分 WebView 中漏掉恢复消息。
+    requestAnimationFrame(() => {
+      postNativePageCurlVisibility();
+      if (displayMode === 'paged' && nativePageCurlNeedsSync) syncNativePageCurl();
+    });
     try { input.blur(); } catch(e) {}
     try { if (mobileInput) mobileInput.blur(); } catch(e) {}
     // 等待 iOS 收起键盘后再清理残余焦点；不改 window/经文滚动位置。
@@ -3802,19 +3939,87 @@ function setupSearch() {
         if (active && active !== document.body) active.blur();
       } catch(e) {}
     }, 120);
-    if (isMobileReader()) setReaderChromeVisible(true);
+    if (shouldAnimate) {
+      // 先让长胶囊收回原搜索按钮，再恢复常规阅读按钮，形成同一控件的连续变化。
+      setTimeout(() => {
+        topbarEl.classList.remove('searching', 'search-closing');
+        topbarSearchRow.hidden = true;
+        setReaderChromeVisible(true);
+      }, 360);
+    } else if (isMobileReader()) {
+      setReaderChromeVisible(true);
+    }
+  }
+
+  function exitSearchResultMode() {
+    activeSearchQuery = '';
+    activeSearchResults = [];
+    activeSearchResultIndex = -1;
+    document.body.classList.remove('search-result-mode');
+    if (resultStatus) resultStatus.hidden = true;
+    if (resultNav) resultNav.hidden = true;
+    clearSearchHighlights();
+    postNativePageCurlVisibility();
+    if (displayMode === 'paged') {
+      nativePageCurlNeedsSync = true;
+      syncNativePageCurl();
+    }
+  }
+
+  function enterSearchResultMode(result, index) {
+    activeSearchQuery = result.query;
+    activeSearchResultIndex = Math.max(0, index);
+    document.body.classList.add('search-result-mode');
+    if (resultSummary) resultSummary.textContent = `本书包含“${activeSearchQuery}”的结果`;
+    if (resultChapter) resultChapter.textContent = result.chapterTitle || '';
+    if (resultStatus) resultStatus.hidden = false;
+    if (resultNav) resultNav.hidden = false;
+    if (resultPrev) resultPrev.disabled = activeSearchResultIndex <= 0;
+    if (resultNext) resultNext.disabled = activeSearchResultIndex >= activeSearchResults.length - 1;
   }
 
   btn.addEventListener('click', () => {
     topbarEl.classList.contains('searching') ? closePanel() : openPanel();
   });
 
-  closeBtn.addEventListener('click', closePanel);
   if (compactBtn) compactBtn.addEventListener('click', expandSearch);
+  resultExit?.addEventListener('click', exitSearchResultMode);
+  const reopenSearchResults = () => {
+    exitSearchResultMode();
+    openPanel();
+  };
+  resultStatusReopen?.addEventListener('click', reopenSearchResults);
+  resultReopen?.addEventListener('click', reopenSearchResults);
+  resultPrev?.addEventListener('click', () => {
+    if (activeSearchResultIndex > 0) navigateToResult(activeSearchResults[activeSearchResultIndex - 1], activeSearchResultIndex - 1);
+  });
+  resultNext?.addEventListener('click', () => {
+    if (activeSearchResultIndex < activeSearchResults.length - 1) navigateToResult(activeSearchResults[activeSearchResultIndex + 1], activeSearchResultIndex + 1);
+  });
   if (searchOverlay) searchOverlay.addEventListener('pointerdown', closePanel);
+  // “最近搜索”和结果容器位于遮罩上方；容器自身的留白也应视为背景点击。
+  // 仅实际可操作项保留原行为，避免空白区域吞掉回退手势。
+  searchHistory?.addEventListener('pointerdown', event => {
+    if (event.target.closest('button')) return;
+    event.preventDefault();
+    closePanel();
+  });
+  panel?.addEventListener('pointerdown', event => {
+    if (event.target.closest('.search-results li')) return;
+    event.preventDefault();
+    closePanel();
+  });
   if (searchHistoryClear) {
-    searchHistoryClear.addEventListener('click', () => {
+    searchHistoryClear.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!searchHistoryEditing) {
+        searchHistoryEditing = true;
+        renderSearchHistory();
+        return;
+      }
       try { localStorage.removeItem(SEARCH_HISTORY_KEY); } catch(e) {}
+      searchHistoryEditing = false;
       renderSearchHistory();
     });
   }
@@ -3838,12 +4043,32 @@ function setupSearch() {
 
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
-    // iPhone 上由键盘“搜索”明确提交，避免输入时结果层盖住搜索框和历史。
-    if (isMobileReader()) {
-      panel.hidden = true;
+    if (searchInputComposing) return;
+    const query = input.value.trim();
+    // 输入即搜索；移动端保持输入框展开，结果从输入框下方实时刷新。
+    // 清空输入时恢复历史记录，不留下空结果层。
+    if (!query) {
+      doSearch('');
+      if (searchHistory) searchHistory.hidden = false;
+      renderSearchHistory();
       return;
     }
-    debounceTimer = setTimeout(() => doSearch(input.value.trim()), 150);
+    if (searchHistory) searchHistory.hidden = true;
+    debounceTimer = setTimeout(() => doSearch(query), 100);
+  });
+
+  // 中文输入法在组词阶段会连续派发 input；compositionend 后立即以确认文字搜索。
+  input.addEventListener('compositionstart', () => {
+    searchInputComposing = true;
+    clearTimeout(debounceTimer);
+  });
+  input.addEventListener('compositionend', () => {
+    searchInputComposing = false;
+    clearTimeout(debounceTimer);
+    const query = input.value.trim();
+    if (searchHistory) searchHistory.hidden = !!query;
+    doSearch(query);
+    if (!query) renderSearchHistory();
   });
 
   // Mobile input mirrors desktop search
@@ -3899,9 +4124,9 @@ function setupSearch() {
     }
 
     for (const q of queries) {
-      for (const src of dataSources) {
-        src.data.chapters.forEach(chapter => {
-          chapter.paragraphs.forEach(para => {
+      for (const [sourceIndex, src] of dataSources.entries()) {
+        src.data.chapters.forEach((chapter, chapterIndex) => {
+          chapter.paragraphs.forEach((para, paragraphIndex) => {
             const searchableText = readerParagraphText(para);
             let idx = 0;
             while ((idx = searchableText.indexOf(q, idx)) !== -1) {
@@ -3920,6 +4145,9 @@ function setupSearch() {
                 before, match, after,
                 query: q,
                 edition: src.label,
+                sourceIndex,
+                chapterIndex,
+                paragraphIndex,
               });
               idx += q.length;
             }
@@ -3928,7 +4156,18 @@ function setupSearch() {
       }
     }
 
+    // 简繁检索会分轮扫描；统一按经文实际顺序重排，确保“上一个/下一个”
+    // 的深色焦点逐字向前移动，而不是在不同字形结果之间跳跃。
+    results.sort((a, b) =>
+      a.sourceIndex - b.sourceIndex ||
+      a.chapterIndex - b.chapterIndex ||
+      a.paragraphIndex - b.paragraphIndex ||
+      a.matchIndex - b.matchIndex
+    );
+
     countLabel.textContent = results.length > 0 ? `${results.length} 处` : '无结果';
+    activeSearchQuery = query;
+    activeSearchResults = results;
 
     // 非空查询即显示结果面板；“无结果”也必须给用户明确反馈，不能只剩遮罩。
     panel.hidden = false;
@@ -3942,14 +4181,14 @@ function setupSearch() {
       resultsList.appendChild(empty);
     }
 
-    results.slice(0, 100).forEach(r => {
+    results.slice(0, 100).forEach((r, resultIndex) => {
       const li = document.createElement('li');
       const edLabel = r.edition !== '宗宝本' ? `<span style="font-size:0.7rem;color:var(--ink-light);margin-left:0.4em">${escapeHtml(r.edition)}</span>` : '';
       li.innerHTML =
         `<div class="result-chapter">${escapeHtml(r.chapterTitle)}${edLabel}</div>` +
         `<div>${escapeHtml(r.before)}<mark>${escapeHtml(r.match)}</mark>${escapeHtml(r.after)}</div>`;
       // attach desktop click handler
-      li.addEventListener('click', () => navigateToResult(r));
+      li.addEventListener('click', () => navigateToResult(r, resultIndex));
       // store payload for cloned mobile list
       try { li.setAttribute('data-payload', encodeURIComponent(JSON.stringify(r))); } catch(e){}
       resultsList.appendChild(li);
@@ -4063,8 +4302,14 @@ function setupSearch() {
     openLibraryPanel(false);
   }
 
-  function navigateToResult(result) {
-    closePanel();
+  function navigateToResult(result, requestedIndex = -1) {
+    const resultIndex = requestedIndex >= 0
+      ? requestedIndex
+      : activeSearchResults.findIndex(item => item.paraId === result.paraId && item.matchIndex === result.matchIndex && item.edition === result.edition);
+    closePanel({ preserveMarks: true, animate: false });
+    // 搜索结果跳转是一次新的阅读定位，清除上一次翻页/选词手势的临时状态。
+    isFlipping = false;
+    setReaderSelectionLocked(false);
 
     // 优先匹配版本
     let selector = `.para[data-para="${result.paraId}"]`;
@@ -4091,6 +4336,7 @@ function setupSearch() {
       return searchableTextInElement(element).includes(visibleQuery);
     }) || candidates[0];
     if (!paraEl) return;
+    enterSearchResultMode(result, resultIndex);
 
     const fold = paraEl.closest('.fold');
     const reader = document.querySelector('.scroll-container');
@@ -4100,16 +4346,22 @@ function setupSearch() {
       paraEl.scrollIntoView({ behavior: 'auto', inline: 'nearest', block: 'center' });
     } else if (fold) {
       fold.scrollIntoView({ behavior: 'auto', inline: 'start', block: 'nearest' });
-      const pageIndex = reader
-        ? Math.max(0, Math.round(reader.scrollLeft / Math.max(1, reader.clientWidth)))
-        : 0;
-      nativeUIHandler()?.postMessage({ pageCurlCurrentIndex: pageIndex });
     }
 
     const visibleQuery = useTraditionalContent ? toTraditional(result.query) : toSimplified(result.query);
     requestAnimationFrame(() => {
       if (reader) reader.style.scrollBehavior = previousScrollBehavior;
-      highlightInElement(paraEl, visibleQuery);
+      highlightSearchResultPage(fold, result, visibleQuery, activeSearchResults);
+      updateProgress();
+      savePosition();
+      if (displayMode === 'paged' && reader) {
+        const pageIndex = Math.max(0, Math.round(reader.scrollLeft / Math.max(1, reader.clientWidth)));
+        // 必须在定位结束后把目标页交给原生层并完整同步；只发送 index 会让
+        // 搜索前被暂停的 Page Curl 偶发保留旧页面，从而表现为翻页卡住。
+        nativePageCurlRequestedIndex = pageIndex;
+        nativePageCurlNeedsSync = true;
+        syncNativePageCurl();
+      }
     });
   }
 }
@@ -4125,42 +4377,69 @@ function searchableTextInElement(element) {
   return text;
 }
 
-function highlightInElement(el, query) {
+function highlightSearchResultPage(fold, currentResult, visibleQuery, searchResults) {
   clearSearchHighlights();
-  markTextInElement(el, query, 'search-highlight', true);
+  if (!fold || !visibleQuery) return;
+
+  const paragraphElements = Array.from(fold.querySelectorAll('.para[data-para]'));
+  paragraphElements.forEach(element => {
+    const sourceStart = Number(element.dataset.sourceStart) || 0;
+    const sourceEndValue = Number(element.dataset.sourceEnd);
+    const sourceEnd = Number.isFinite(sourceEndValue)
+      ? sourceEndValue
+      : sourceStart + searchableTextInElement(element).length;
+    const ranges = [];
+
+    // 使用搜索阶段记录的原文绝对位置，不再在分页片段中反复取第一个同名字符。
+    searchResults.forEach(result => {
+      if (result.paraId !== element.dataset.para || result.edition !== currentResult.edition) return;
+      if (result.matchIndex < sourceStart || result.matchIndex >= sourceEnd) return;
+      const query = useTraditionalContent ? toTraditional(result.query) : toSimplified(result.query);
+      ranges.push({
+        start: result.matchIndex - sourceStart,
+        length: query.length,
+        className: result === currentResult || (
+          result.matchIndex === currentResult.matchIndex &&
+          result.paraId === currentResult.paraId &&
+          result.edition === currentResult.edition
+        ) ? 'search-highlight search-highlight-current' : 'search-highlight'
+      });
+    });
+
+    markTextRangesInElement(element, ranges);
+  });
 }
 
-function markTextInElement(el, query, className, firstOnly = true) {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  const textNodes = [];
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    // 拼音 rt 不属于正文搜索字符串，否则每个汉字之间会被注音打断。
-    if (node.parentElement?.closest('rt')) continue;
-    textNodes.push(node);
-  }
-
-  let fullText = '';
-  const segments = textNodes.map(node => {
-    const start = fullText.length;
-    fullText += node.textContent || '';
-    return { node, start, end: fullText.length };
-  });
-  const matchStart = fullText.indexOf(query);
-  if (matchStart < 0) return false;
-  const matchEnd = matchStart + query.length;
-
-  // 一个词可能横跨术语 span 或多个 ruby；分别包住交叠的文本片段，视觉上仍是连续高亮。
-  segments.forEach(({ node, start, end }) => {
-    const overlapStart = Math.max(start, matchStart);
-    const overlapEnd = Math.min(end, matchEnd);
-    if (overlapStart >= overlapEnd) return;
-    const range = document.createRange();
-    range.setStart(node, overlapStart - start);
-    range.setEnd(node, overlapEnd - start);
-    const mark = document.createElement('mark');
-    mark.className = className;
-    range.surroundContents(mark);
+function markTextRangesInElement(el, ranges) {
+  if (!ranges.length) return false;
+  // 从后向前包裹，前面的字符偏移不会被后续 DOM 修改扰动；相同结果先去重。
+  const uniqueRanges = Array.from(new Map(ranges.map(range => [`${range.start}:${range.length}`, range])).values())
+    .sort((a, b) => b.start - a.start);
+  uniqueRanges.forEach(({ start: matchStart, length, className }) => {
+    // surroundContents 会拆分文本节点；每个命中前重新建立字符坐标，避免多个
+    // 相同词落在同一原始文本节点时沿用失效偏移，造成重复嵌套标记。
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const segments = [];
+    let textOffset = 0;
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node.parentElement?.closest('rt')) continue;
+      const start = textOffset;
+      textOffset += (node.textContent || '').length;
+      segments.push({ node, start, end: textOffset });
+    }
+    const matchEnd = matchStart + length;
+    segments.slice().reverse().forEach(({ node, start, end }) => {
+      const overlapStart = Math.max(start, matchStart);
+      const overlapEnd = Math.min(end, matchEnd);
+      if (overlapStart >= overlapEnd || !node.isConnected) return;
+      const range = document.createRange();
+      range.setStart(node, overlapStart - start);
+      range.setEnd(node, overlapEnd - start);
+      const mark = document.createElement('mark');
+      mark.className = className;
+      range.surroundContents(mark);
+    });
   });
   return true;
 }
