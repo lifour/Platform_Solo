@@ -1,0 +1,31 @@
+{
+  "name": "tanjing",
+  "version": "1.0.0",
+  "description": "六祖坛经·阅藏 — 经折装数字阅读器",
+  "private": true,
+  "scripts": {
+    "parse": "node scripts/parse_cbeta.js",
+    "dev": "vite",
+    "build": "vite build",
+    "check": "node --check js/main.js && node scripts/check_project.js",
+    "preview": "vite preview",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npm run ios:sync && npx cap run ios",
+    "android:sync": "npx cap copy android",
+    "android:build": "npm run android:sync && cd android && .\\gradlew assembleDebug"
+  },
+  "devDependencies": {
+    "fast-xml-parser": "^4.5.0",
+    "pinyin-pro": "^3.28.1",
+    "serve": "^14.2.0",
+    "vite": "^8.0.10"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
+    "lxgw-wenkai-webfont": "^1.7.0"
+  }
+}

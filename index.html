@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="六祖坛经·阅藏 — 经折装数字阅读器。阅读，即是修行。">
+  <meta name="theme-color" content="#F3EFE0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>六祖坛经 · 阅藏</title>
+
+  <!-- 霞鹜文楷 (本地 woff2 子集) -->
+  <link rel="stylesheet" href="fonts/font.css">
+  <!-- 虎皮宣配色 · 经折装布局 -->
+  <link rel="stylesheet" href="css/sutra.css">
+</head>
+<body class="reader-chrome-hidden app-screen-library" data-app-screen="library">
+
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="topbar-main">
+      <button id="side-handle" class="side-handle" aria-label="打开目录" hidden></button>
+      <div class="topbar-title">坛经</div>
+      <nav class="topbar-nav">
+        <button id="compare-btn" class="topbar-btn" aria-label="对照" title="敦煌本对照" hidden>对照</button>
+        <button id="pinyin-btn" class="topbar-btn" aria-label="注音" title="拼音注音" hidden>注音</button>
+        <button id="search-btn" class="topbar-btn" aria-label="搜索">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+        <button id="top-search-settings" class="topbar-btn" aria-label="设置">⚙</button>
+        <select id="chapter-select" aria-label="品名导航">
+          <option value="">— 选品 —</option>
+        </select>
+        <span class="topbar-progress">0%</span>
+      </nav>
+      <!-- 搜索展开行（激活时替换标题和导航） -->
+      <div id="topbar-search-row" class="topbar-search-row" hidden>
+        <span class="search-field-icon sf-icon sf-icon--search" aria-hidden="true"></span>
+        <input id="search-input" type="search" placeholder="搜经文…" autocomplete="off" enterkeyhint="search" aria-label="搜索经文">
+        <span id="search-count" class="search-count"></span>
+        <button id="search-settings-btn" class="topbar-btn" aria-label="设置">⚙</button>
+        <button id="search-close" class="topbar-btn icon-close-button" aria-label="关闭"><span class="sf-icon sf-icon--close" aria-hidden="true"></span></button>
+        <button id="search-compact-btn" class="search-compact-btn" type="button" aria-label="展开搜索" hidden>
+          <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+    <!-- 搜索结果（顶栏内向下展开） -->
+    <div id="search-panel" class="search-panel" hidden>
+      <ul id="search-results" class="search-results"></ul>
+    </div>
+    <section id="search-history" class="search-history" aria-label="搜索历史" hidden>
+      <div class="search-history-head">
+        <span>最近搜索</span>
+        <button id="search-history-clear" class="search-history-clear" type="button" aria-label="清空搜索历史">
+          <span class="sf-icon sf-icon--trash" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="search-history-list" class="search-history-list"></div>
+    </section>
+    <div id="search-overlay" class="search-overlay" hidden></div>
+  </header>
+
+  <!-- 经折装横滚容器 -->
+  <main class="scroll-container">
+    <div class="loading">展卷中…</div>
+  </main>
+
+  <div id="selection-magnifier" class="selection-magnifier" aria-hidden="true" hidden>
+    <div class="selection-magnifier-viewport">
+      <div class="selection-magnifier-content"></div>
+      <span class="selection-magnifier-focus" aria-hidden="true"></span>
+    </div>
+  </div>
+
+  <div id="selection-toolbar" class="selection-toolbar" role="toolbar" aria-label="选中文本操作" hidden>
+    <button type="button" data-selection-action="copy"><span class="selection-action-icon sf-icon sf-icon--copy" aria-hidden="true"></span><span>复制</span></button>
+    <button type="button" data-selection-action="highlight"><span class="selection-action-icon sf-icon sf-icon--highlighter" aria-hidden="true"></span><span>划线</span></button>
+    <button type="button" data-selection-action="note"><span class="selection-action-icon sf-icon sf-icon--idea" aria-hidden="true"></span><span>写想法</span></button>
+    <button type="button" data-selection-action="share"><span class="selection-action-icon sf-icon sf-icon--share" aria-hidden="true"></span><span>分享书摘</span></button>
+    <button type="button" data-selection-action="ask"><span class="selection-action-icon sf-icon sf-icon--sparkles" aria-hidden="true"></span><span>问灯塔</span></button>
+    <button type="button" data-selection-action="speak"><span class="selection-action-icon sf-icon sf-icon--speak" aria-hidden="true"></span><span>朗读</span></button>
+  </div>
+
+  <div id="highlight-actions" class="highlight-actions" role="dialog" aria-modal="true" aria-labelledby="highlight-actions-title" hidden>
+    <header>
+      <div>
+        <div id="highlight-actions-title" class="highlight-actions-title">高亮内容</div>
+        <div id="highlight-actions-quote" class="highlight-actions-quote"></div>
+      </div>
+      <button id="highlight-actions-close" class="icon-close-button" type="button" aria-label="关闭高亮管理"><span class="sf-icon sf-icon--close" aria-hidden="true"></span></button>
+    </header>
+    <div class="highlight-actions-buttons">
+      <button id="highlight-remove" type="button">删除高亮</button>
+      <button id="highlight-note-delete" class="destructive" type="button">删除笔记</button>
+    </div>
+  </div>
+
+  <!-- 侧边面板：移动端目录切换与搜索 -->
+  <aside id="side-panel" class="side-panel reader-tool-panel" hidden>
+    <div class="side-panel-header">
+      <span class="side-panel-drag-handle" aria-hidden="true"></span>
+      <div class="side-panel-title">六祖坛经</div>
+    </div>
+    <div class="side-panel-body">
+      <section class="directory-reading-summary" aria-label="阅读进度">
+        <div class="directory-current-chapter" id="directory-current-chapter">行由品第一</div>
+        <div class="directory-page-progress">
+          <strong id="directory-current-page">1 / 1页</strong>
+          <span id="directory-progress-label">进度 0%</span>
+        </div>
+        <div class="directory-progress-track" aria-hidden="true"><span id="directory-progress-fill"></span></div>
+      </section>
+      <div class="mobile-search-row">
+        <input id="mobile-search-input" type="text" placeholder="搜经文…" autocomplete="off">
+        <div id="mobile-search-count" class="search-count"></div>
+      </div>
+
+      <div class="mobile-chapter-section">
+        <div class="mobile-chapter-heading">目录</div>
+        <ul id="mobile-chapter-list" class="mobile-chapter-list">
+          <!-- populated dynamically -->
+        </ul>
+      </div>
+
+      <ul id="mobile-search-results" class="search-results"></ul>
+    </div>
+  </aside>
+
+  <!-- 当侧边面板打开时覆盖主页面以拦截触摸/点击 -->
+  <div id="panel-overlay" class="panel-overlay" hidden></div>
+
+  <!-- 底部进度条 -->
+  <div class="progress-bar">
+    <div class="progress-bar-fill"></div>
+  </div>
+
+  <nav class="reader-mobile-topbar" aria-label="阅读页导航">
+    <button id="mobile-library-btn" class="reader-mobile-topbar-button" type="button" aria-label="返回藏经阁">
+      <span class="sf-icon sf-icon--back" aria-hidden="true"></span>
+    </button>
+    <span class="reader-mobile-topbar-status" aria-live="polite">
+      <span id="reader-mobile-title">六祖坛经-行由品第一</span>
+      <span id="reader-mobile-page" hidden>1 / 1页</span>
+    </span>
+    <button id="reader-mobile-search" class="reader-mobile-topbar-button" type="button" aria-label="搜索经文">
+      <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
+    </button>
+  </nav>
+
+  <!-- iPhone 底部主导航 -->
+  <nav class="mobile-tabbar" aria-label="阅读工具">
+    <span class="mobile-tabbar-indicator" aria-hidden="true"></span>
+    <button id="mobile-toc-btn" class="mobile-tabbar-btn" type="button" aria-label="打开目录" aria-controls="side-panel" aria-expanded="false">
+      <span class="mobile-tabbar-icon sf-icon sf-icon--pages" aria-hidden="true"></span>
+      <span>目录</span>
+    </button>
+    <button id="mobile-notes-btn" class="mobile-tabbar-btn" type="button" aria-label="打开笔记">
+      <span class="mobile-tabbar-icon sf-icon sf-icon--highlighter" aria-hidden="true"></span>
+      <span>笔记</span>
+    </button>
+    <button id="mobile-lighthouse-btn" class="mobile-tabbar-btn" type="button" aria-label="打开灯塔">
+      <span class="mobile-tabbar-icon sf-icon sf-icon--sparkles" aria-hidden="true"></span>
+      <span>灯塔</span>
+    </button>
+    <button id="mobile-settings-btn" class="mobile-tabbar-btn" type="button" aria-label="打开设置">
+      <span class="mobile-tabbar-icon sf-icon sf-icon--gear-fill" aria-hidden="true"></span>
+      <span>设置</span>
+    </button>
+  </nav>
+  <main id="library-panel" class="library-home" hidden aria-labelledby="library-title">
+    <header class="library-home-header">
+      <div>
+        <h1 id="library-title">藏经阁</h1>
+        <p>一阁藏经，随身展卷</p>
+      </div>
+    </header>
+    <section class="library-shelf" aria-label="典籍书架">
+      <button class="library-book library-book--available" type="button" data-book="tanjing">
+        <span class="library-book-cover"><span>六祖坛经</span></span>
+        <span class="library-book-info"><strong>六祖坛经</strong><small class="library-book-progress" data-book-progress="tanjing">0% · 继续阅读</small></span>
+      </button>
+      <button class="library-book" type="button" disabled aria-label="金刚经，暂未上架">
+        <span class="library-book-cover"><span>金刚经</span></span>
+        <span class="library-book-info"><strong>金刚经</strong><small>待上架</small></span>
+      </button>
+      <button id="library-add-book" class="library-book library-add-book" type="button" aria-label="添加经书">
+        <span class="library-book-cover library-add-cover"><span aria-hidden="true">＋</span></span>
+        <span class="library-book-info"><strong>添加经书</strong><small>搜索并下载</small></span>
+      </button>
+    </section>
+    <section id="cloud-library-panel" class="cloud-library-panel" hidden aria-labelledby="cloud-library-title">
+      <header class="cloud-library-header">
+        <div>
+          <h2 id="cloud-library-title">云端经库</h2>
+          <p>按拼音排序，可多选下载</p>
+        </div>
+        <button id="cloud-library-close" class="icon-close-button" type="button" aria-label="关闭云端经库"><span class="sf-icon sf-icon--close" aria-hidden="true"></span></button>
+      </header>
+      <label class="cloud-library-search">
+        <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
+        <input id="cloud-library-search-input" type="search" placeholder="搜索书名或拼音" autocomplete="off" autocapitalize="none">
+      </label>
+      <div id="cloud-library-status" class="cloud-library-status" role="status">正在读取经书目录…</div>
+      <div id="cloud-library-list" class="cloud-library-list" aria-label="可选经书"></div>
+      <footer class="cloud-library-footer">
+        <span id="cloud-library-selection">未选择经书</span>
+        <button id="cloud-library-download" type="button" disabled>下载</button>
+      </footer>
+    </section>
+    <section class="library-lighthouse-view" hidden aria-label="灯塔">
+      <span class="library-lighthouse-mark sf-icon sf-icon--sparkles" aria-hidden="true"></span>
+      <h2>灯塔</h2>
+      <p>照见本心，问见自性</p>
+      <button type="button" disabled>AI 对话即将接入</button>
+    </section>
+    <section class="library-search-view" hidden aria-label="搜索书库">
+      <h2>搜索</h2>
+      <div class="library-search-empty">
+        <span class="sf-icon sf-icon--search" aria-hidden="true"></span>
+        <p>搜索书库</p>
+      </div>
+      <div id="library-search-results" class="library-search-results"></div>
+    </section>
+    <nav class="library-home-nav" aria-label="藏经阁导航">
+      <div class="library-home-nav-main">
+        <span class="library-home-nav-indicator" aria-hidden="true"></span>
+        <button id="library-home-books" class="is-active" type="button">
+          <span class="sf-icon sf-icon--library" aria-hidden="true"></span><span>藏经阁</span>
+        </button>
+        <button id="library-home-lighthouse" type="button">
+          <span class="sf-icon sf-icon--sparkles" aria-hidden="true"></span><span>灯塔</span>
+        </button>
+      </div>
+      <button id="library-home-search" class="library-home-search-button" type="button" aria-label="搜索书库">
+        <span class="sf-icon sf-icon--search" aria-hidden="true"></span><span>搜索</span>
+      </button>
+      <div class="library-search-dock" hidden>
+        <button id="library-search-back" type="button" aria-label="返回书架"><span class="sf-icon sf-icon--library" aria-hidden="true"></span></button>
+        <label><span class="sf-icon sf-icon--search" aria-hidden="true"></span><input id="library-search-input" type="search" placeholder="书名或拼音" autocomplete="off" autocapitalize="none"></label>
+        <button id="library-search-close" class="icon-close-button" type="button" aria-label="关闭搜索"><span class="sf-icon sf-icon--close" aria-hidden="true"></span></button>
+      </div>
+    </nav>
+  </main>
+
+  <!-- 灯塔 AI：第一稿先提供入口与产品说明 -->
+  <aside id="lighthouse-panel" class="lighthouse-panel reader-tool-panel" hidden aria-labelledby="lighthouse-title">
+    <div class="lighthouse-panel-body">
+      <div id="lighthouse-title" class="lighthouse-panel-title">灯塔</div>
+      <p class="lighthouse-intro">我是你的心灵灯塔，愿以温暖陪伴，陪你探索内心，找到生命的光。</p>
+      <blockquote class="lighthouse-quote" hidden></blockquote>
+      <form id="lighthouse-form" class="lighthouse-form">
+        <input id="lighthouse-input" type="text" maxlength="500" placeholder="问一问，照见本心" autocomplete="off">
+        <button id="lighthouse-submit" type="submit" aria-label="向灯塔提问" disabled><span aria-hidden="true">↑</span></button>
+      </form>
+      <p class="lighthouse-source">参照《六祖坛经》原文，结合所选经文生成回答</p>
+      <p id="lighthouse-status" class="lighthouse-status" role="status" aria-live="polite"></p>
+    </div>
+  </aside>
+
+  <!-- 阅读笔记：保存当前选中文本的高亮与用户感想 -->
+  <aside id="notes-panel" class="notes-panel reader-tool-panel" hidden aria-labelledby="notes-title">
+    <header class="notes-panel-header">
+      <div>
+        <div id="notes-title" class="notes-panel-title">笔记</div>
+      </div>
+    </header>
+    <div class="notes-panel-body">
+      <blockquote id="notes-selection" class="notes-selection" hidden></blockquote>
+      <textarea id="notes-thought" rows="3" maxlength="500" placeholder="写下此刻的感想（500字以内）…"></textarea>
+      <div class="notes-composer-meta"><span id="notes-editing-state" hidden>编辑笔记</span><span id="notes-character-count">已输入 0 字 · 最多 500 字</span></div>
+      <div class="notes-composer-actions">
+        <button id="notes-cancel-edit" class="notes-cancel-edit" type="button" hidden>取消编辑</button>
+        <button id="notes-save" class="notes-save" type="button" disabled>保存笔记</button>
+      </div>
+      <p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>
+      <div class="notes-list-heading"><span id="notes-count">0 条</span></div>
+      <div id="notes-list" class="notes-list"></div>
+    </div>
+  </aside>
+
+  <!-- 设置面板（字体大小、行距） -->
+  <aside id="settings-panel" class="settings-panel reader-tool-panel" hidden>
+    <div class="settings-header">
+      <button id="settings-back" class="topbar-btn" aria-label="返回">←</button>
+      <div class="settings-title">阅读设置</div>
+    </div>
+    <div class="settings-body">
+      <div class="setting-row setting-row--size">
+        <label>字体大小</label>
+        <div class="setting-control reader-size-control">
+          <button id="font-size-decr" class="small-btn size-end size-end--small" aria-label="减小正文字号">A</button>
+          <div class="setting-range-wrap">
+            <input id="font-size-range" type="range" min="16" max="28" step="2">
+            <span id="font-size-value" class="setting-value"></span>
+          </div>
+          <button id="font-size-incr" class="small-btn size-end size-end--large" aria-label="增大正文字号">A</button>
+        </div>
+      </div>
+      <div class="setting-row setting-row--spacing">
+        <label>字体行距</label>
+        <div class="setting-control reader-spacing-control">
+          <button id="line-height-decr" class="small-btn spacing-end" aria-label="收紧正文行距">紧</button>
+          <div class="setting-range-wrap">
+            <input id="line-height-range" type="range" min="1.3" max="2.1" step="0.2">
+            <span id="line-height-value" class="setting-value setting-value--line">行距</span>
+          </div>
+          <button id="line-height-incr" class="small-btn spacing-end" aria-label="放宽正文行距">松</button>
+        </div>
+      </div>
+      <div class="setting-shortcuts" aria-label="其他阅读设置">
+        <div class="setting-shortcut setting-font-picker">
+          <span id="font-style-label">字体样式</span><span aria-hidden="true">›</span>
+          <button id="font-menu-trigger" type="button" aria-label="字体样式" aria-haspopup="menu" aria-expanded="false"></button>
+          <select id="font-select" aria-label="字体样式" hidden>
+            <option class="font-option font-option--system" value="'PingFang SC', 'Helvetica Neue', Arial, sans-serif">系统字体</option>
+            <option class="font-option font-option--wenkai" value="'LXGW WenKai', 'Kaiti SC', 'KaiTi', 'STKaiti', serif">霞鹜文楷</option>
+            <option class="font-option font-option--source-serif" value="'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif">思源宋体</option>
+          </select>
+          <div id="font-custom-menu" class="font-custom-menu" role="menu" hidden>
+            <button class="font-menu-option font-menu-option--system" type="button" role="menuitemradio" data-font-index="0"><span class="font-menu-check">✓</span><span>系统字体</span></button>
+            <button class="font-menu-option font-menu-option--wenkai" type="button" role="menuitemradio" data-font-index="1"><span class="font-menu-check">✓</span><span>霞鹜文楷</span></button>
+            <button class="font-menu-option font-menu-option--source-serif" type="button" role="menuitemradio" data-font-index="2"><span class="font-menu-check">✓</span><span>思源宋体</span></button>
+          </div>
+        </div>
+        <div class="setting-script-controls" aria-label="正文文字设置">
+          <button id="setting-traditional-mode" class="setting-script-button" type="button" aria-label="繁简切换" aria-pressed="false">繁</button>
+          <button id="setting-pinyin-mode" class="setting-script-button" type="button" aria-label="拼音切换" aria-pressed="false">拼</button>
+        </div>
+        <label class="setting-shortcut">
+          <span id="page-mode-label">滑动显示</span><span aria-hidden="true">›</span>
+          <select id="display-mode-select" aria-label="翻页模式">
+            <option value="scroll">滑动显示</option>
+            <option value="paged">仿真翻页</option>
+          </select>
+        </label>
+      </div>
+      <div class="setting-edition-controls" aria-label="经文版本设置">
+        <button id="setting-edition-switch" class="setting-edition-button" type="button" aria-label="切换经文版本">
+          <span>版本切换</span><strong id="setting-edition-label">宗宝本</strong>
+        </button>
+        <button id="setting-compare-mode" class="setting-edition-button" type="button" aria-pressed="false">
+          <span>对照阅读</span><strong>宗宝本 · 敦煌本</strong>
+        </button>
+      </div>
+    </div>
+  </aside>
+  <!-- 核心逻辑 -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

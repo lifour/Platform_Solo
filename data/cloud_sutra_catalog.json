@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "books": [
+    { "id": "amituojing", "title": "佛说阿弥陀经", "shortTitle": "阿弥陀经", "pinyin": "fo shuo a mi tuo jing", "initials": "fsamtj", "size": "待云端发布", "downloadURL": null },
+    { "id": "guan-wuliangshou", "title": "佛说观无量寿佛经", "shortTitle": "观无量寿经", "pinyin": "fo shuo guan wu liang shou fo jing", "initials": "fsgwlsfj", "size": "待云端发布", "downloadURL": null },
+    { "id": "wuliangshou", "title": "佛说无量寿经", "shortTitle": "无量寿经", "pinyin": "fo shuo wu liang shou jing", "initials": "fswlsj", "size": "待云端发布", "downloadURL": null },
+    { "id": "jinguangming", "title": "金光明最胜王经", "shortTitle": "金光明经", "pinyin": "jin guang ming zui sheng wang jing", "initials": "jgmzswj", "size": "待云端发布", "downloadURL": null },
+    { "id": "jingang", "title": "金刚般若波罗蜜经", "shortTitle": "金刚经", "pinyin": "jin gang bo re bo luo mi jing", "initials": "jgbrblmj", "size": "待云端发布", "downloadURL": null },
+    { "id": "jieshenmi", "title": "解深密经", "shortTitle": "解深密经", "pinyin": "jie shen mi jing", "initials": "jsmj", "size": "待云端发布", "downloadURL": null },
+    { "id": "lengqie", "title": "楞伽阿跋多罗宝经", "shortTitle": "楞伽经", "pinyin": "leng qie a ba duo luo bao jing", "initials": "lqabdlj", "size": "待云端发布", "downloadURL": null },
+    { "id": "miaofalianhua", "title": "妙法莲华经", "shortTitle": "法华经", "pinyin": "miao fa lian hua jing", "initials": "mflhj", "size": "待云端发布", "downloadURL": null },
+    { "id": "shiershi", "title": "十二门论", "shortTitle": "十二门论", "pinyin": "shi er men lun", "initials": "seml", "size": "待云端发布", "downloadURL": null },
+    { "id": "sishierzhang", "title": "四十二章经", "shortTitle": "四十二章经", "pinyin": "si shi er zhang jing", "initials": "ssezj", "size": "待云端发布", "downloadURL": null },
+    { "id": "weimojie", "title": "维摩诘所说经", "shortTitle": "维摩诘经", "pinyin": "wei mo jie suo shuo jing", "initials": "wmjssj", "size": "待云端发布", "downloadURL": null },
+    { "id": "xiaopin", "title": "小品般若波罗蜜经", "shortTitle": "小品般若经", "pinyin": "xiao pin bo re bo luo mi jing", "initials": "xpbrblmj", "size": "待云端发布", "downloadURL": null },
+    { "id": "yaoshi", "title": "药师琉璃光如来本愿功德经", "shortTitle": "药师经", "pinyin": "yao shi liu li guang ru lai ben yuan gong de jing", "initials": "ysllgrlbygdj", "size": "待云端发布", "downloadURL": null },
+    { "id": "yishengbaoxing", "title": "究竟一乘宝性论", "shortTitle": "宝性论", "pinyin": "yi sheng bao xing lun", "initials": "ysbxl", "size": "待云端发布", "downloadURL": null }
+  ]
+}
