@@ -4371,7 +4371,16 @@ function setupSearch() {
     setReaderChromeVisible
   });
 
-  setupDailyQuote();
+  setupDailyQuote({
+    showAnimatedPanel,
+    hideAnimatedPanel,
+    closeOthers() {
+      closeLighthousePanel();
+      closeNotesPanel();
+      closeLibraryPanel();
+      closeSettingsPanel();
+    }
+  });
 
   function navigateToResult(result, requestedIndex = -1) {
     const resultIndex = requestedIndex >= 0
@@ -4667,8 +4676,11 @@ function setupCorrection(deps) {
   });
 }
 
-// ---- 签语（随机经典语录）----
-function setupDailyQuote() {
+// ---- 签文（随机经典语录）----
+function setupDailyQuote(deps) {
+  const closeOthers = deps?.closeOthers;
+  const showAnimatedPanel = deps?.showAnimatedPanel;
+  const hideAnimatedPanel = deps?.hideAnimatedPanel;
   const QUOTES = [
   {
     "text": "菩提本无树，明镜亦非台，本来无一物，何处惹尘埃。",
@@ -4790,14 +4802,14 @@ function setupDailyQuote() {
   const textEl = document.getElementById('quote-text');
   const annoEl = document.getElementById('quote-annotation');
   const sourceEl = document.getElementById('quote-source');
-  const closeBtn = document.getElementById('quote-close');
-  const nextBtn = document.getElementById('quote-next');
+  const refreshBtn = document.getElementById('quote-close');
   const getDateStr = () => {
     const d = new Date();
     const wd = ['日','一','二','三','四','五','六'];
     return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日 星期' + wd[d.getDay()];
   };
   function show() {
+    if (closeOthers) closeOthers();
     if (dateEl) dateEl.textContent = getDateStr();
     if (shownIndices.length >= QUOTES.length) shownIndices = [];
     const available = QUOTES.map((_, i) => i).filter(i => !shownIndices.includes(i));
@@ -4807,14 +4819,27 @@ function setupDailyQuote() {
     textEl.textContent = q.text;
     annoEl.textContent = '—— ' + q.annotation;
     sourceEl.textContent = '—— 摘自《六祖坛经》' + q.source;
-    card.hidden = false;
+    if (showAnimatedPanel) showAnimatedPanel(card);
+    else { card.hidden = false; card.classList.add('open'); }
     if (overlay) overlay.hidden = false;
   }
-  function close() { card.hidden = true; if (overlay) overlay.hidden = true; }
-  btn.addEventListener('click', show);
+  function close() {
+    if (hideAnimatedPanel) hideAnimatedPanel(card);
+    else { card.classList.remove('open'); card.hidden = true; }
+    if (overlay) overlay.hidden = true;
+  }
+  const isOpen = () => !card.hidden && card.classList.contains('open');
+  // 桌面顶栏 & 移动端签文按钮：已开则关闭，否则打开（切换）
+  const toggle = () => { if (isOpen()) close(); else show(); };
+  btn.addEventListener('click', toggle);
   const mobileBtn = document.getElementById('mobile-quote-btn');
-  if (mobileBtn) mobileBtn.addEventListener('click', show);
-  if (closeBtn) closeBtn.addEventListener('click', close);
-  if (nextBtn) nextBtn.addEventListener('click', show);
+  if (mobileBtn) mobileBtn.addEventListener('click', toggle);
+  // 刷新（换一句）：保持打开，抽下一条
+  if (refreshBtn) refreshBtn.addEventListener('click', show);
   if (overlay) overlay.addEventListener('click', close);
+  // 点击其他底部 tabbar 按钮时自动关闭签文弹窗
+  document.querySelectorAll('.mobile-tabbar-btn').forEach(b => {
+    if (b === mobileBtn) return;
+    b.addEventListener('click', close);
+  });
 }
