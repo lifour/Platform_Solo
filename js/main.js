@@ -113,17 +113,25 @@ function applyUILanguage(useTraditional) {
   rerender();
 }
 
+// 同步简/繁两个切换按钮的高亮与 aria-pressed 状态。
+function syncScriptModeButtons(useTrad) {
+  const simp = document.getElementById('setting-simplified-mode');
+  const trad = document.getElementById('setting-traditional-mode');
+  if (simp) {
+    simp.setAttribute('aria-pressed', useTrad ? 'false' : 'true');
+    simp.classList.toggle('is-active', !useTrad);
+  }
+  if (trad) {
+    trad.setAttribute('aria-pressed', useTrad ? 'true' : 'false');
+    trad.classList.toggle('is-active', useTrad);
+  }
+}
+
 function initUILanguage() {
   const stored = (function(){ try { return localStorage.getItem('ui_traditional'); } catch(e){ return null; } })();
   const useTrad = stored === '1';
   applyUILanguage(useTrad);
-  try {
-    const control = document.getElementById('setting-traditional-mode');
-    if (control) {
-      control.setAttribute('aria-pressed', useTrad ? 'true' : 'false');
-      control.classList.toggle('is-active', useTrad);
-    }
-  } catch(e){}
+  syncScriptModeButtons(useTrad);
 }
 
 // ---- 启动 ----
@@ -3875,21 +3883,25 @@ function setupSearch() {
 
   if (topSettingsBtn) topSettingsBtn.addEventListener('click', toggleSettingsPanel);
 
-  // Traditional UI toggle wiring
+  // 简/繁两个互斥切换按钮
   try {
+    const simpControl = document.getElementById('setting-simplified-mode');
     const tradControl = document.getElementById('setting-traditional-mode');
+    let initial = false;
+    try { initial = (localStorage.getItem('ui_traditional') === '1'); } catch(e){}
+    syncScriptModeButtons(initial);
+
+    const setMode = (useTrad) => {
+      syncScriptModeButtons(useTrad);
+      try { localStorage.setItem('ui_traditional', useTrad ? '1' : '0'); } catch(e){}
+      applyUILanguage(useTrad);
+    };
+
+    if (simpControl) {
+      simpControl.addEventListener('click', () => setMode(false));
+    }
     if (tradControl) {
-      let initial = false;
-      try { initial = (localStorage.getItem('ui_traditional') === '1'); } catch(e){}
-      tradControl.setAttribute('aria-pressed', initial ? 'true' : 'false');
-      tradControl.classList.toggle('is-active', initial);
-      tradControl.addEventListener('click', () => {
-        const v = tradControl.getAttribute('aria-pressed') !== 'true';
-        tradControl.setAttribute('aria-pressed', v ? 'true' : 'false');
-        tradControl.classList.toggle('is-active', v);
-        try { localStorage.setItem('ui_traditional', v ? '1' : '0'); } catch(e){}
-        applyUILanguage(v);
-      });
+      tradControl.addEventListener('click', () => setMode(true));
     }
   } catch(e) {}
 
