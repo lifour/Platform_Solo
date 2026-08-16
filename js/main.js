@@ -113,18 +113,12 @@ function applyUILanguage(useTraditional) {
   rerender();
 }
 
-// 同步简/繁两个切换按钮的高亮与 aria-pressed 状态。
+// 同步"繁"切换按钮的高亮与 aria-pressed 状态（默认简体）。
 function syncScriptModeButtons(useTrad) {
-  const simp = document.getElementById('setting-simplified-mode');
   const trad = document.getElementById('setting-traditional-mode');
-  if (simp) {
-    simp.setAttribute('aria-pressed', useTrad ? 'false' : 'true');
-    simp.classList.toggle('is-active', !useTrad);
-  }
-  if (trad) {
-    trad.setAttribute('aria-pressed', useTrad ? 'true' : 'false');
-    trad.classList.toggle('is-active', useTrad);
-  }
+  if (!trad) return;
+  trad.setAttribute('aria-pressed', useTrad ? 'true' : 'false');
+  trad.classList.toggle('is-active', useTrad);
 }
 
 function initUILanguage() {
@@ -3884,9 +3878,8 @@ function setupSearch() {
 
   if (topSettingsBtn) topSettingsBtn.addEventListener('click', toggleSettingsPanel);
 
-  // 简/繁两个互斥切换按钮
+  // 单个"繁"切换按钮：默认简体，点击在简/繁间切换
   try {
-    const simpControl = document.getElementById('setting-simplified-mode');
     const tradControl = document.getElementById('setting-traditional-mode');
     let initial = false;
     try { initial = (localStorage.getItem('ui_traditional') === '1'); } catch(e){}
@@ -3898,11 +3891,8 @@ function setupSearch() {
       applyUILanguage(useTrad);
     };
 
-    if (simpControl) {
-      simpControl.addEventListener('click', () => setMode(false));
-    }
     if (tradControl) {
-      tradControl.addEventListener('click', () => setMode(true));
+      tradControl.addEventListener('click', () => setMode(!useTraditionalContent));
     }
   } catch(e) {}
 
