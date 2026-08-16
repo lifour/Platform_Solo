@@ -1593,6 +1593,26 @@ function renderCompareMode(container, select, termPattern) {
 function splitSentences(text, maxLen) {
   if (text.length <= maxLen) return [text];
 
+  // 校正文本可能含段内换行（\n）：优先按换行断开，保证每行独立成块、不被硬切。
+  if (text.includes('\n')) {
+    const lineChunks = [];
+    let remaining = text;
+    while (remaining) {
+      const nl = remaining.indexOf('\n');
+      if (nl === -1 || nl >= maxLen) {
+        // 当前行超长或已是最后一段：交给下方标点拆分逻辑处理
+        break;
+      }
+      lineChunks.push(remaining.slice(0, nl));
+      remaining = remaining.slice(nl + 1);
+    }
+    if (lineChunks.length > 0) {
+      // 剩余超长部分递归拆分
+      const tail = splitSentences(remaining || '', maxLen);
+      return [...lineChunks, ...tail].filter(Boolean);
+    }
+  }
+
   const chunks = [];
   let remaining = text;
 
@@ -2707,6 +2727,9 @@ function setupSearch() {
   const fontMenuTrigger = document.getElementById('font-menu-trigger');
   const fontStylePanel = document.getElementById('font-style-panel');
   const fontStyleBack = document.getElementById('font-style-back');
+  const correctionTrigger = document.getElementById('correction-trigger');
+  const correctionPanel = document.getElementById('correction-panel');
+  const correctionBack = document.getElementById('correction-back');
   const pageModeTrigger = document.getElementById('page-mode-trigger');
   const pageModePanel = document.getElementById('page-mode-panel');
   const pageModeBack = document.getElementById('page-mode-back');
@@ -2825,8 +2848,10 @@ function setupSearch() {
   function closeSettingChoicePanels() {
     hideAnimatedPanel(pageModePanel);
     hideAnimatedPanel(fontStylePanel);
+    hideAnimatedPanel(correctionPanel);
     pageModeTrigger?.setAttribute('aria-expanded', 'false');
     fontMenuTrigger?.setAttribute('aria-expanded', 'false');
+    correctionTrigger?.setAttribute('aria-expanded', 'false');
   }
 
   function openSettingChoicePanel(panel, trigger) {
@@ -4302,6 +4327,15 @@ function setupSearch() {
     openLibraryPanel(false);
   }
 
+  setupCorrection({
+    hideAnimatedPanel,
+    showAnimatedPanel,
+    closeSettingChoicePanels,
+    panelOverlay,
+    isMobileReader,
+    setReaderChromeVisible
+  });
+
   function navigateToResult(result, requestedIndex = -1) {
     const resultIndex = requestedIndex >= 0
       ? requestedIndex
@@ -4449,5 +4483,142 @@ function clearSearchHighlights() {
     const parent = mark.parentNode;
     parent.replaceChild(document.createTextNode(mark.textContent), mark);
     parent.normalize();
+  });
+}
+
+// ---- 逐字校正（仅前端导出，不写服务器） ----
+// 段落约定：编辑区中段落之间用空行（\n\n）分隔，段内换行用单个换行（\n）。
+// 以简体为存储基准：用户编辑的是当前显示语言（简/繁），导出时把 text 存简体、
+// traditionalText 存繁体，保证繁简始终一致。
+function setupCorrection(deps) {
+  const {
+    hideAnimatedPanel: _hidePanel,
+    showAnimatedPanel: _showPanel,
+    closeSettingChoicePanels: _closeChoicePanels,
+    panelOverlay: _overlay,
+    isMobileReader: _isMobile,
+    setReaderChromeVisible: _setChrome
+  } = deps || {};
+  const trigger = document.getElementById('correction-trigger');
+  const panel = document.getElementById('correction-panel');
+  const back = document.getElementById('correction-back');
+  const chapterSelect = document.getElementById('correction-chapter-select');
+  const editor = document.getElementById('correction-editor');
+  const exportBtn = document.getElementById('correction-export');
+  const copyBtn = document.getElementById('correction-copy');
+  const statusEl = document.getElementById('correction-status');
+  if (!panel || !editor || !chapterSelect) return;
+
+  const openPanel = () => {
+    if (!trigger || trigger.disabled) return;
+    _hidePanel?.(document.getElementById('settings-panel'));
+    _closeChoicePanels?.();
+    _showPanel?.(panel);
+    trigger?.setAttribute('aria-expanded', 'true');
+    if (_overlay) _overlay.hidden = false;
+    document.body.classList.add('reader-panel-open');
+    document.getElementById('mobile-settings-btn')?.classList.add('active');
+    if (_isMobile?.()) _setChrome?.(true);
+    populateChapters();
+  };
+
+  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
+
+  function populateChapters() {
+    if (!sutraData || !Array.isArray(sutraData.chapters)) return;
+    chapterSelect.innerHTML = '';
+    sutraData.chapters.forEach(chapter => {
+      const opt = document.createElement('option');
+      opt.value = chapter.id;
+      opt.textContent = readerChapterTitle(chapter) || chapter.id;
+      chapterSelect.appendChild(opt);
+    });
+    // 默认选中当前正在阅读的章节
+    const current = currentReadingParagraphID?.() || '';
+    if (current) {
+      const id = current.split(':').pop() || '';
+      const matched = sutraData.chapters.find(c => id.startsWith(c.id));
+      if (matched) chapterSelect.value = matched.id;
+    }
+    loadChapter();
+  }
+
+  function loadChapter() {
+    const chapter = sutraData?.chapters.find(c => c.id === chapterSelect.value);
+    if (!chapter) { editor.value = ''; setStatus(''); return; }
+    editor.value = chapter.paragraphs
+      .map(p => readerParagraphText(p))
+      .join('\n\n');
+    setStatus('');
+  }
+
+  // 解析编辑区，按 \n\n 拆回段落。空白段自动剔除。
+  function parseEditedParagraphs(raw) {
+    return raw
+      .split(/\n\s*\n/)
+      .map(seg => seg.replace(/\s+\n/g, '\n').replace(/^\s+|\s+$/g, ''))
+      .filter(Boolean);
+  }
+
+  // 依据当前显示语言，把用户编辑的文本拆分成语义 text(简) + traditionalText(繁)
+  function splitEdition(text) {
+    const simple = useTraditionalContent ? toSimplified(text) : text;
+    const trad = useTraditionalContent ? text : toTraditional(text);
+    return { simple, trad };
+  }
+
+  function buildExport() {
+    if (!sutraData) return null;
+    const editedRaw = editor.value;
+    const editedChapterId = chapterSelect.value;
+    const paragraphs = parseEditedParagraphs(editedRaw).map(text => {
+      const { simple, trad } = splitEdition(text);
+      return { id: '', text: simple, traditionalText: trad };
+    });
+    const chapters = sutraData.chapters.map(chapter => {
+      if (chapter.id !== editedChapterId) return chapter;
+      // 保留未变化的段落 id；重建 id 用章节内序号
+      return {
+        ...chapter,
+        paragraphs: paragraphs.map((p, index) => ({
+          id: `${chapter.id}-p${String(index + 1).padStart(2, '0')}`,
+          text: p.text,
+          ...(chapter.paragraphs[0] && 'traditionalText' in chapter.paragraphs[0] ? { traditionalText: p.traditionalText } : {})
+        }))
+      };
+    });
+    return { title: sutraData.title, edition: sutraData.edition, source: sutraData.source, chapters };
+  }
+
+  function downloadJSON(data) {
+    const blob = new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'zongbao.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  trigger?.addEventListener('click', openPanel);
+  back?.addEventListener('click', () => returnChoicePanelToSettings(panel, trigger));
+  chapterSelect.addEventListener('change', loadChapter);
+  exportBtn?.addEventListener('click', () => {
+    const data = buildExport();
+    if (!data) { setStatus('无数据可导出'); return; }
+    downloadJSON(data);
+    setStatus('已导出，请替换 data/zongbao.json 后提交 git');
+  });
+  copyBtn?.addEventListener('click', async () => {
+    const data = buildExport();
+    if (!data) { setStatus('无数据可导出'); return; }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      setStatus('已复制到剪贴板');
+    } catch (_) {
+      setStatus('复制失败，请用导出按钮');
+    }
   });
 }

@@ -365,6 +365,30 @@
           <span>对照阅读</span><strong>宗宝本 · 敦煌本</strong>
         </button>
       </div>
+      <button id="correction-trigger" class="setting-shortcut" type="button" aria-haspopup="dialog" aria-expanded="false">
+        <span>逐字校正</span><span aria-hidden="true">›</span>
+      </button>
+    </div>
+  </aside>
+
+  <aside id="correction-panel" class="setting-choice-panel reader-tool-panel" hidden aria-labelledby="correction-title">
+    <header class="setting-choice-header">
+      <button id="correction-back" class="setting-choice-collapse" type="button" aria-label="收起逐字校正"><span aria-hidden="true"></span></button>
+      <h2 id="correction-title">逐字校正</h2>
+      <span class="setting-choice-header-spacer" aria-hidden="true"></span>
+    </header>
+    <div class="correction-body">
+      <div class="correction-chapter-bar">
+        <label for="correction-chapter-select">章节</label>
+        <select id="correction-chapter-select"></select>
+        <span class="correction-chapter-hint">段落以空行分隔；段内换行用单个回车</span>
+      </div>
+      <textarea id="correction-editor" class="correction-editor" spellcheck="false" placeholder="选择章节后在此编辑正文"></textarea>
+      <div class="correction-actions">
+        <button id="correction-export" class="correction-btn correction-btn--primary" type="button">导出 JSON</button>
+        <button id="correction-copy" class="correction-btn" type="button">复制</button>
+        <span id="correction-status" class="correction-status" role="status"></span>
+      </div>
     </div>
   </aside>
 
