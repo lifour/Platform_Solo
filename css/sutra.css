@@ -3425,7 +3425,7 @@ html.native-liquid-glass .topbar .side-handle {
 
 /* 偈颂沿用源文件的逐行结构，区别于叙事正文。 */
 .scroll-container .para.para--verse {
-  color: #A85544;
+  color: var(--ink-main);
   display: grid;
   grid-template-columns: repeat(var(--verse-columns, 1), max-content);
   justify-content: center;
