@@ -260,9 +260,12 @@ body.reader-selection-locked .para {
   background: rgba(184, 155, 114, 0.15);
 }
 
-/* 夹注：全角括号（如“（名璩）”）比正文小 3 个字号 */
+/* 夹注：全角括号（如“（名璩）”）比正文小 3 个字号，并紧贴前文后文 */
 .annotation {
   font-size: calc(var(--reader-font-size) - 6px);
+  letter-spacing: 0;
+  /* 抵消 body 的 0.08em 字距，让夹注贴紧相邻正文 */
+  margin-inline: -0.06em;
 }
 
 /* ---- 术语浮层 ---- */
