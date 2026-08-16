@@ -1,0 +1,13 @@
+* text=auto
+
+# Shell 脚本必须在 Linux 服务器上以 LF 运行
+*.sh text eol=lf
+
+# 部署脚本必须保持 LF（避免 CRLF 破坏 shebang）
+deploy-lighthouse.sh text eol=lf
+
+# Windows 批处理脚本用 CRLF
+*.bat text eol=crlf
+
+# Gradle 可执行脚本保留原样
+android/gradlew text eol=lf

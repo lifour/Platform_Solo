@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  nginx:
+    build: .
+    container_name: platform-solo-nginx
+    ports:
+      - "57282:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
