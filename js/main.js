@@ -1049,8 +1049,28 @@ function makeParaHTML(text, termPattern) {
   let html = termPattern
     ? text.replace(termPattern, '<span class="term" data-term="$1">$1</span>')
     : text;
+  // 夹注：全角括号内的注释（如“（名璩）”）字号缩小，避开已包裹的标签。
+  html = wrapParentheticalAnnotations(html);
   if (pinyinMode) html = addPinyinRuby(html);
   return html;
+}
+
+/**
+ * 把全角括号（……）内的夹注包成小号 span。
+ * 只在标签之外的纯文本段里匹配，避免扰动 term/其它已生成的标签。
+ */
+function wrapParentheticalAnnotations(html) {
+  // 把“非标签文本 + 标签”分段，仅对纯文本段内的括号做包裹，标签原样保留。
+  return html.replace(/([^<>]*)(<[^>]+>)/g, (match, text, tag) => {
+    return wrapBracketText(text) + tag;
+  }).replace(/([^<>]+)$/, (match, text) => wrapBracketText(text));
+}
+
+function wrapBracketText(text) {
+  return text.replace(
+    /（([^（）]*?)）/g,
+    '<span class="annotation">（$1）</span>'
+  );
 }
 
 /**
