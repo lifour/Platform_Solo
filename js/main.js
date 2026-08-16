@@ -4812,6 +4812,8 @@ function setupDailyQuote() {
   }
   function close() { card.hidden = true; if (overlay) overlay.hidden = true; }
   btn.addEventListener('click', show);
+  const mobileBtn = document.getElementById('reader-mobile-quote');
+  if (mobileBtn) mobileBtn.addEventListener('click', show);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (nextBtn) nextBtn.addEventListener('click', show);
   if (overlay) overlay.addEventListener('click', close);
