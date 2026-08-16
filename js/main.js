@@ -2091,6 +2091,10 @@ function rerender() {
     ? oldComparePane.scrollWidth - oldComparePane.clientWidth
     : container.scrollWidth - container.clientWidth;
   const ratio = maxS > 0 ? (oldComparePane ? oldComparePane.scrollLeft : container.scrollLeft) / maxS : 0;
+  // 左右翻页模式记录当前页索引（scrollLeft / 页宽），切换后定位到同一页。
+  const oldPageIndex = isPaginatedDisplayMode()
+    ? Math.max(0, Math.round(container.scrollLeft / Math.max(1, container.clientWidth)))
+    : 0;
   const transitionAnchor = pendingReaderAnchor;
   pendingReaderAnchor = null;
   // 无显式锚点时，用 captureReaderAnchor 获取当前阅读段落。
@@ -2113,21 +2117,22 @@ function rerender() {
       postNativePageCurlVisibility();
       return;
     }
-    const anchoredParagraphs = readingAnchor
-      ? Array.from(container.querySelectorAll(`.para[data-para="${CSS.escape(readingAnchor)}"]`))
-      : [];
-    const anchorIndex = Math.round((transitionAnchor?.paragraphProgress || 0) * Math.max(0, anchoredParagraphs.length - 1));
-    const anchoredParagraph = anchoredParagraphs[anchorIndex] || anchoredParagraphs[0] || null;
-    const anchoredFold = anchoredParagraph?.closest('.fold');
-    if (anchoredFold && isPaginatedDisplayMode()) {
-      container.scrollLeft = anchoredFold.offsetLeft;
-    } else if (anchoredParagraph && displayMode === 'scroll') {
-      const containerRect = container.getBoundingClientRect();
-      const paragraphRect = anchoredParagraph.getBoundingClientRect();
-      container.scrollTop += paragraphRect.top - containerRect.top;
-    } else {
-      const newMax = container.scrollWidth - container.clientWidth;
-      container.scrollLeft = ratio * newMax;
+    const newMax = Math.max(0, container.scrollWidth - container.clientWidth);
+    if (isPaginatedDisplayMode()) {
+      // 左右翻页：定位到切换前的同一页索引，避免段落锚点（只记段落 id）
+      // 在切换后跳到段落开头而不断往前翻。
+      const pageWidth = Math.max(1, container.clientWidth);
+      const target = Math.min(oldPageIndex * pageWidth, newMax);
+      container.scrollLeft = target;
+    } else if (displayMode === 'scroll' && readingAnchor) {
+      const anchoredParagraphs = Array.from(container.querySelectorAll(`.para[data-para="${CSS.escape(readingAnchor)}"]`));
+      const anchorIndex = Math.round((transitionAnchor?.paragraphProgress || 0) * Math.max(0, anchoredParagraphs.length - 1));
+      const anchoredParagraph = anchoredParagraphs[anchorIndex] || anchoredParagraphs[0] || null;
+      if (anchoredParagraph) {
+        const containerRect = container.getBoundingClientRect();
+        const paragraphRect = anchoredParagraph.getBoundingClientRect();
+        container.scrollTop += paragraphRect.top - containerRect.top;
+      }
     }
     updateProgress();
     syncNativePageCurl();
