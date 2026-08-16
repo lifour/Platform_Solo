@@ -225,11 +225,11 @@ body.reader-selection-locked .para {
   letter-spacing: 0.3em;
   margin-bottom: 1.5rem;
   font-weight: normal;
+  text-align: center;
 }
 
-/* 序/赞等前置章节：标题居中 */
+/* 序/赞等前置章节：标题与署名更紧凑（居中已由 .chapter-title 统一提供） */
 .chapter-title--centered {
-  text-align: center;
   margin-bottom: 0.6rem;
 }
 
