@@ -227,6 +227,20 @@ body.reader-selection-locked .para {
   font-weight: normal;
 }
 
+/* 序/赞等前置章节：标题居中 */
+.chapter-title--centered {
+  text-align: center;
+  margin-bottom: 0.6rem;
+}
+
+/* 序/赞的署名段（如“古筠比丘德异撰”）：居中、字号略小、与标题紧凑 */
+.para.para--attribution {
+  text-align: center;
+  text-indent: 0;
+  font-size: 0.88em;
+  margin-bottom: 1.4rem;
+}
+
 /* ---- 经文段落 ---- */
 .para {
   text-indent: 2em;

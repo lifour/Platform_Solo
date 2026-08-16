@@ -1126,13 +1126,16 @@ function renderNormalMode(container, select, termPattern) {
 
 
     const title = document.createElement('h2');
-    title.className = 'chapter-title';
+    // 序/赞等前置章节：标题居中、署名段（首段）小号居中。
+    const isPreface = chapter.kind === 'preface';
+    title.className = isPreface ? 'chapter-title chapter-title--centered' : 'chapter-title';
     // 拼音仅用于正文；章节名始终保持无注音标题。
     title.textContent = readerChapterTitle(chapter);
     fold.appendChild(title);
 
 
-    chapter.paragraphs.forEach(p => {
+    chapter.paragraphs.forEach((p, paraIndex) => {
+      const isAttribution = isPreface && paraIndex === 0;
       if (pinyinMode && pinyinRenderedParagraphIDs && !pinyinRenderedParagraphIDs.has(p.id)) return;
       // 拼音模式直接渲染 pinyinHtml
       if (pinyinMode && p.pinyinHtml) {
@@ -1142,7 +1145,7 @@ function renderNormalMode(container, select, termPattern) {
         const chunks = splitPinyinHTML(pinyinHTML, 72);
         chunks.forEach((chunk, index) => {
           const para = document.createElement('p');
-          para.className = 'para';
+          para.className = isAttribution ? 'para para--attribution' : 'para';
           markParagraphFragment(para, index, chunks.length);
           markVerse(para, p);
           para.dataset.para = p.id;
@@ -1158,7 +1161,7 @@ function renderNormalMode(container, select, termPattern) {
         let sourceOffset = 0;
         chunks.forEach((chunk, index) => {
           const para = document.createElement('p');
-          para.className = 'para';
+          para.className = isAttribution ? 'para para--attribution' : 'para';
           markParagraphFragment(para, index, chunks.length);
           markVerse(para, p);
           para.dataset.para = p.id;
@@ -1543,17 +1546,21 @@ function renderCompareMode(container, select, termPattern) {
     titleWrapZB.className = 'chapter-title-wrap';
 
     const titleZB = document.createElement('h2');
-    titleZB.className = 'chapter-title';
+    titleZB.className = zbChapter.kind === 'preface'
+      ? 'chapter-title chapter-title--centered'
+      : 'chapter-title';
     titleZB.textContent = readerChapterTitle(zbChapter);
     titleWrapZB.appendChild(titleZB);
     colZB.appendChild(titleWrapZB);
 
 
-    zbChapter.paragraphs.forEach(p => {
+    const zbIsPreface = zbChapter.kind === 'preface';
+    zbChapter.paragraphs.forEach((p, paraIndex) => {
+      const zbIsAttribution = zbIsPreface && paraIndex === 0;
       if (pinyinMode && pinyinRenderedParagraphIDs && !pinyinRenderedParagraphIDs.has(p.id)) return;
       if (pinyinMode && p.pinyinHtml) {
         const para = document.createElement('p');
-        para.className = 'para';
+        para.className = zbIsAttribution ? 'para para--attribution' : 'para';
         markVerse(para, p);
         para.dataset.para = p.id;
         para.dataset.edition = 'zb';
@@ -1567,7 +1574,7 @@ function renderCompareMode(container, select, termPattern) {
         let sourceOffset = 0;
         chunks.forEach((chunk, index) => {
           const para = document.createElement('p');
-          para.className = 'para';
+          para.className = zbIsAttribution ? 'para para--attribution' : 'para';
           markParagraphFragment(para, index, chunks.length);
           markVerse(para, p);
           para.dataset.para = p.id;
