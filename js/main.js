@@ -4667,7 +4667,7 @@ function setupCorrection(deps) {
   });
 }
 
-// ---- 每日一语（随机经典语录）----
+// ---- 签语（随机经典语录）----
 function setupDailyQuote() {
   const QUOTES = [
   {
