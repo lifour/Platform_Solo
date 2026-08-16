@@ -1179,7 +1179,7 @@ function renderNormalMode(container, select, termPattern) {
         // fragments so a single long paragraph can never become a scrollable
         // page inside UIPageViewController.
         const sourceText = readerParagraphText(p);
-        const chunks = splitSentences(sourceText, 96);
+        const chunks = splitSentences(sourceText, 48);
         let sourceOffset = 0;
         chunks.forEach((chunk, index) => {
           const para = document.createElement('p');
