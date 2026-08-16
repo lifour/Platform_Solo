@@ -2097,14 +2097,15 @@ function rerender() {
     ? oldComparePane.scrollWidth - oldComparePane.clientWidth
     : container.scrollWidth - container.clientWidth;
   const ratio = maxS > 0 ? (oldComparePane ? oldComparePane.scrollLeft : container.scrollLeft) / maxS : 0;
-  const oldPageWidth = Math.max(1, container.clientWidth);
-  const oldPageIndex = Math.round(container.scrollLeft / oldPageWidth);
-  const oldFold = container.querySelectorAll(':scope > .fold')[oldPageIndex];
   const transitionAnchor = pendingReaderAnchor;
   pendingReaderAnchor = null;
-  const readingAnchor = transitionAnchor?.paragraphID || (compareMode
+  // 无显式锚点时，用 captureReaderAnchor 获取当前阅读段落。
+  // 它正确区分 scroll（上下滚动，按 scrollTop）与 horizontal（左右，按 scrollLeft）模式，
+  // 避免在默认 scroll 模式下因 scrollLeft 恒为 0 而错误锚定到第一页。
+  const fallbackAnchor = transitionAnchor || captureReaderAnchor();
+  const readingAnchor = fallbackAnchor?.paragraphID || (compareMode
     ? currentReadingParagraphID()
-    : oldFold?.querySelector('.para[data-para]')?.dataset.para || '');
+    : '');
 
   render();
 
