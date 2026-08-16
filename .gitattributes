@@ -9,5 +9,6 @@ deploy-lighthouse.sh text eol=lf
 # Windows 批处理脚本用 CRLF
 *.bat text eol=crlf
 
-# Gradle 可执行脚本保留原样
+# Gradle 可执行脚本保留原样（保留 LF 与可执行位）
 android/gradlew text eol=lf
+android/gradlew.bat text eol=crlf

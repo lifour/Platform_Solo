@@ -39,7 +39,10 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          # gradlew 在 Windows 提交时可能丢失可执行位，先确保有执行权限
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Read version
         id: version
