@@ -4585,8 +4585,9 @@ function setupCorrection(deps) {
   function loadChapter() {
     const chapter = sutraData?.chapters.find(c => c.id === chapterSelect.value);
     if (!chapter) { editor.value = ''; setStatus(''); return; }
+    // 校正面板始终编辑简体 text，避免误改 traditionalText。
     editor.value = chapter.paragraphs
-      .map(p => readerParagraphText(p))
+      .map(p => p.text || '')
       .join('\n\n');
     setStatus('');
   }
@@ -4599,30 +4600,23 @@ function setupCorrection(deps) {
       .filter(Boolean);
   }
 
-  // 依据当前显示语言，把用户编辑的文本拆分成语义 text(简) + traditionalText(繁)
-  function splitEdition(text) {
-    const simple = useTraditionalContent ? toSimplified(text) : text;
-    const trad = useTraditionalContent ? text : toTraditional(text);
-    return { simple, trad };
-  }
-
   function buildExport() {
     if (!sutraData) return null;
     const editedRaw = editor.value;
     const editedChapterId = chapterSelect.value;
-    const paragraphs = parseEditedParagraphs(editedRaw).map(text => {
-      const { simple, trad } = splitEdition(text);
-      return { id: '', text: simple, traditionalText: trad };
-    });
+    // 编辑区是简体 text；按空行切回段落。
+    const editedParagraphs = parseEditedParagraphs(editedRaw);
+
     const chapters = sutraData.chapters.map(chapter => {
       if (chapter.id !== editedChapterId) return chapter;
-      // 保留未变化的段落 id；重建 id 用章节内序号
+      const hasTrad = chapter.paragraphs[0] && 'traditionalText' in chapter.paragraphs[0];
+      // 逐段：text 用编辑后的简体；traditionalText 保留章节原有值（不重新生成）。
       return {
         ...chapter,
-        paragraphs: paragraphs.map((p, index) => ({
+        paragraphs: editedParagraphs.map((text, index) => ({
           id: `${chapter.id}-p${String(index + 1).padStart(2, '0')}`,
-          text: p.text,
-          ...(chapter.paragraphs[0] && 'traditionalText' in chapter.paragraphs[0] ? { traditionalText: p.traditionalText } : {})
+          text,
+          ...(hasTrad ? { traditionalText: chapter.paragraphs[index]?.traditionalText ?? '' } : {})
         }))
       };
     });
