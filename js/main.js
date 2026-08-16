@@ -4546,7 +4546,15 @@ function setupCorrection(deps) {
   const exportBtn = document.getElementById('correction-export');
   const copyBtn = document.getElementById('correction-copy');
   const statusEl = document.getElementById('correction-status');
+  const hintEl = document.querySelector('.correction-chapter-hint');
   if (!panel || !editor || !chapterSelect) return;
+
+  // 显示当前正在编辑的是简体还是繁体
+  const updateHint = () => {
+    if (hintEl) hintEl.textContent = useTraditionalContent
+      ? '正在编辑繁体；段落空行分隔，段内换行用单个回车'
+      : '正在编辑简体；段落空行分隔，段内换行用单个回车';
+  };
 
   const openPanel = () => {
     if (!trigger || trigger.disabled) return;
@@ -4585,10 +4593,11 @@ function setupCorrection(deps) {
   function loadChapter() {
     const chapter = sutraData?.chapters.find(c => c.id === chapterSelect.value);
     if (!chapter) { editor.value = ''; setStatus(''); return; }
-    // 校正面板始终编辑简体 text，避免误改 traditionalText。
+    // 跟随当前显示版本：简体模式编辑 text，繁体模式编辑 traditionalText。
     editor.value = chapter.paragraphs
-      .map(p => p.text || '')
+      .map(p => readerParagraphText(p) || '')
       .join('\n\n');
+    updateHint();
     setStatus('');
   }
 
@@ -4604,20 +4613,24 @@ function setupCorrection(deps) {
     if (!sutraData) return null;
     const editedRaw = editor.value;
     const editedChapterId = chapterSelect.value;
-    // 编辑区是简体 text；按空行切回段落。
     const editedParagraphs = parseEditedParagraphs(editedRaw);
+    // 当前编辑的是简体还是繁体？
+    const editingTrad = !!useTraditionalContent;
+    const editingKey = editingTrad ? 'traditionalText' : 'text';
 
     const chapters = sutraData.chapters.map(chapter => {
       if (chapter.id !== editedChapterId) return chapter;
       const hasTrad = chapter.paragraphs[0] && 'traditionalText' in chapter.paragraphs[0];
-      // 逐段：text 用编辑后的简体；traditionalText 保留章节原有值（不重新生成）。
       return {
         ...chapter,
-        paragraphs: editedParagraphs.map((text, index) => ({
-          id: `${chapter.id}-p${String(index + 1).padStart(2, '0')}`,
-          text,
-          ...(hasTrad ? { traditionalText: chapter.paragraphs[index]?.traditionalText ?? '' } : {})
-        }))
+        paragraphs: editedParagraphs.map((content, index) => {
+          const original = chapter.paragraphs[index] || {};
+          const para = { id: `${chapter.id}-p${String(index + 1).padStart(2, '0')}`, text: original.text ?? '' };
+          if (hasTrad) para.traditionalText = original.traditionalText ?? '';
+          // 只更新当前编辑的那个字段，另一字段保留原值。
+          para[editingKey] = content;
+          return para;
+        })
       };
     });
     return { title: sutraData.title, edition: sutraData.edition, source: sutraData.source, chapters };
