@@ -3193,7 +3193,7 @@ button,
     top: 5px;
     bottom: 5px;
     left: 5px;
-    width: calc((100% - 10px) / 4);
+    width: calc((100% - 10px) / 5);
     padding: 0 2px;
     opacity: 0;
     pointer-events: none;
@@ -4386,7 +4386,7 @@ html.native-liquid-glass .topbar .side-handle {
     top: 3px !important;
     bottom: 5px !important;
     left: 4px !important;
-    width: calc((100% - 8px) / 4) !important;
+    width: calc((100% - 8px) / 5) !important;
     padding: 0 2px !important;
   }
 
