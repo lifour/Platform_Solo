@@ -175,6 +175,12 @@ body.reader-selection-locked .para {
   -ms-overflow-style: none;
 }
 
+/* 鼠标在横向分页模式下拖选文本时，临时关闭横向滚动与吸附，避免抢走选区 */
+body.text-selecting .scroll-container {
+  scroll-snap-type: none !important;
+  overflow-x: hidden !important;
+}
+
 /* When in scroll mode, stack folds vertically and allow natural scrolling */
 .mode-scroll .scroll-container {
   flex-direction: column;
@@ -880,9 +886,10 @@ mark.reader-note-highlight {
   position: fixed;
   z-index: 3200;
   display: grid;
-  grid-template-columns: repeat(6, minmax(54px, 1fr));
+  grid-template-columns: repeat(4, minmax(54px, 1fr));
+  grid-auto-rows: minmax(54px, auto);
   width: min(520px, calc(100vw - 20px));
-  min-height: 76px;
+  min-height: 132px;
   padding: 7px;
   overflow: hidden;
   color: #fff;
@@ -934,13 +941,14 @@ mark.reader-note-highlight {
 
 @media (max-width: 480px) {
   .selection-toolbar {
-    grid-template-columns: repeat(6, minmax(48px, 1fr));
+    grid-template-columns: repeat(4, minmax(48px, 1fr));
+    grid-auto-rows: minmax(48px, auto);
     width: calc(100vw - 12px);
-    min-height: 72px;
+    min-height: 120px;
     padding: 6px 3px;
     border-radius: 18px;
   }
-  .selection-toolbar button { min-height: 60px; font-size: 10px; }
+  .selection-toolbar button { min-height: 48px; font-size: 10px; }
   .selection-action-icon { width: 22px; height: 22px; }
 }
 @keyframes hlPulse {
@@ -1049,6 +1057,29 @@ mark.reader-note-highlight {
 .small-btn:hover { border-color:var(--accent-gold); color:var(--accent-gold); }
 .setting-value { min-width:3.6rem; text-align:right; color:var(--ink-main); }
 .setting-actions { text-align:right; margin-top:0.6rem; }
+
+/* ---- 查词/查句面板 ---- */
+.lookup-char-row { display:flex; align-items:center; justify-content:center; gap:0.8rem; }
+.lookup-char-col { display:flex; flex-direction:column; align-items:center; }
+.lookup-char { font-size:2.5rem; line-height:1.2; color:var(--accent-gold); text-align:center; }
+.lookup-char-col .lookup-char { line-height:1.1; }
+.lookup-pinyin { font-size:1rem; color:var(--ink-light); }
+.lookup-char-col .lookup-pinyin { margin-bottom:0.15rem; font-size:0.95rem; }
+.lookup-speak { flex-shrink:0; padding:0.4rem 0.9rem; border:1px solid rgba(216,200,176,0.6); border-radius:16px; background:transparent; color:var(--ink-main); font-size:0.9rem; cursor:pointer; }
+.lookup-speak:active { background:rgba(184,155,114,0.15); }
+.lookup-term { font-size:1.15rem; font-weight:650; color:var(--ink-main); }
+.lookup-pinyin { color:var(--ink-light); font-size:1rem; }
+.lookup-meaning { line-height:1.8; font-size:0.95rem; color:var(--ink-main); white-space:pre-wrap; }
+.lookup-not-found { color:var(--ink-light); font-size:0.9rem; }
+.lookup-link { display:inline-block; margin-top:0.5rem; color:var(--accent-gold); text-decoration:underline; }
+.lookup-section { display:flex; flex-direction:column; gap:0.6rem; }
+.lookup-section-title { font-size:0.8rem; color:var(--ink-light); letter-spacing:0.12em; }
+.lookup-sentence { line-height:2; font-size:0.98rem; color:var(--ink-main); }
+.lookup-hit { color:var(--accent-gold); font-weight:650; }
+.lookup-item { border-top:1px solid rgba(216,200,176,0.28); padding-top:0.6rem; }
+.lookup-item-term { font-weight:650; color:var(--ink-main); }
+.lookup-item-pinyin { color:var(--ink-light); font-size:0.85rem; }
+.lookup-item-meaning { line-height:1.7; font-size:0.9rem; color:var(--ink-main); }
 
 /* Range styling */
 input[type="range"] { -webkit-appearance: none; appearance: none; height: 10px; background: rgba(216,200,176,0.45); border-radius:999px; width:100%; }
@@ -4156,6 +4187,11 @@ html.native-liquid-glass .topbar .side-handle {
     width: 100%;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* 目录列表底部预留空间，避免最后一项被悬浮的底部 tabbar 盖住无法点击。 */
+  .side-panel .side-panel-body {
+    padding-bottom: calc(var(--bottom-bar-size) + var(--safe-bottom) + 40px) !important;
   }
 
   .side-panel .mobile-chapter-item {

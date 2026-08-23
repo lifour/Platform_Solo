@@ -167,6 +167,10 @@ async function init() {
     try {
       window._dunhuangPinyin = await fetchJSON('data/dunhuang_pinyin.json');
     } catch (_) {}
+    // 单字拼音映射（查字功能用）：char → pinyin
+    try {
+      Object.assign(pinyinMap, await fetchJSON('data/pinyin.json'));
+    } catch (_) {}
 
     // 构建术语查找表（按长度降序排列以支持最长匹配）
     glossaryData.terms.forEach(t => {
@@ -732,18 +736,62 @@ function setupSelectionToolbar() {
   let magnifierGestureActive = false;
   let selectionCaptureTimer = null;
   let emptySelectionTimer = null;
+  let selectionShowTimer = null;
   let selectionGraceUntil = 0;
 
-  const hideMagnifier = () => {
+  const hideMagnifier = (immediate = false) => {
     clearTimeout(magnifierTimer);
     magnifierTimer = null;
     magnifierGestureActive = false;
     magnifierSource = null;
     if (!magnifier) return;
     magnifier.classList.remove('visible');
+    if (immediate) { magnifier.hidden = true; return; }
     setTimeout(() => {
       if (!magnifier.classList.contains('visible')) magnifier.hidden = true;
     }, 180);
+  };
+
+  // 判断是否 CJK 汉字（含扩展区）
+  const isCJKCh = (ch) => {
+    const code = ch.codePointAt(0);
+    return (code >= 0x4E00 && code <= 0x9FFF) ||
+           (code >= 0x3400 && code <= 0x4DBF) ||
+           (code >= 0x20000 && code <= 0x2A6DF);
+  };
+
+  // 程序化选中手指下的字/词（用于无法自动选中原生选区时，如 DevTools 设备模拟）。
+  // 优先选中所在的词典术语 .term，否则选一个汉字；返回是否选中成功。
+  const selectWordAt = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el) return false;
+    const termEl = el.closest('.term');
+    if (termEl && termEl.textContent) {
+      const range = document.createRange();
+      range.selectNodeContents(termEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return true;
+    }
+    const caret = document.caretPositionFromPoint
+      ? document.caretPositionFromPoint(clientX, clientY)
+      : document.caretRangeFromPoint(clientX, clientY);
+    const node = caret?.offsetNode || caret?.startContainer;
+    const offset = caret?.offset !== undefined ? caret.offset : caret?.startOffset;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+    const text = node.textContent;
+    let start = offset, end = offset;
+    while (start > 0 && isCJKCh(text[start - 1])) start--;
+    while (end < text.length && isCJKCh(text[end])) end++;
+    if (start === end) return false;
+    const range = document.createRange();
+    range.setStart(node, start);
+    range.setEnd(node, end);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
   };
 
   const updateMagnifier = (clientX, clientY, source) => {
@@ -786,6 +834,11 @@ function setupSelectionToolbar() {
       selectionGraceUntil = Date.now() + 650;
       setReaderSelectionLocked(true);
       updateMagnifier(clientX, clientY, magnifierSource);
+      // 真机会由系统在长按后自动选词；DevTools 设备模拟等环境不会，此时
+      // 程序化选中手指下的字/词作为选区来源，操作栏才有内容可显示。
+      if (!window.getSelection()?.toString().trim()) {
+        selectWordAt(clientX, clientY);
+      }
     }, 260);
   };
 
@@ -853,72 +906,109 @@ function setupSelectionToolbar() {
     }
     selectionSnapshot = snapshot;
     setReaderSelectionLocked(true);
+    // 立即隐藏放大镜，避免与操作栏在过渡期重叠（尤其两层更高的操作栏）。
+    hideMagnifier(true);
     position(snapshot);
     return true;
   };
 
-  container.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'mouse') return;
-    startMagnifier(event.clientX, event.clientY, event.target);
-  }, { passive: true });
+  // 长按/右键时拦截浏览器原生菜单，只保留自定义选词操作栏。
+  // 注意：不能改成 user-select:none，否则自定义操作栏将失去取词数据源。
+  container.addEventListener('contextmenu', event => {
+    if (event.target.closest('.para')) {
+      event.preventDefault();
+    }
+  });
+
+  // ---- 原生选区驱动：不再用放大镜，依赖浏览器原生长按自动选词 + 拖动手柄。
+  // 自定义操作栏由 selectionchange 自动弹出；此处仅做“长按兜底选词”，
+  // 供 DevTools 设备模拟、桌面长按等不会自动选词的环境使用。
+  let wordSelectTimer = null;
+  let wordSelectPoint = null;
+
+  const clearWordSelect = () => {
+    clearTimeout(wordSelectTimer);
+    wordSelectTimer = null;
+    wordSelectPoint = null;
+  };
+
+  const armWordSelect = (x, y) => {
+    wordSelectPoint = { x, y };
+    clearTimeout(wordSelectTimer);
+    wordSelectTimer = setTimeout(() => {
+      wordSelectTimer = null;
+      // 长按后若仍无原生选区（真机会由系统自动选词），兜底选中手指下的字/词。
+      if (!window.getSelection()?.toString().trim() && wordSelectPoint) {
+        selectWordAt(wordSelectPoint.x, wordSelectPoint.y);
+      }
+    }, 320);
+  };
+
+  container.addEventListener('pointerdown', event => armWordSelect(event.clientX, event.clientY), { passive: true });
   container.addEventListener('pointermove', event => {
-    if (!magnifierGestureActive || (!magnifierTimer && magnifier?.hidden)) return;
-    magnifierSource = document.elementFromPoint(event.clientX, event.clientY) || magnifierSource;
-    if (!magnifier?.hidden) updateMagnifier(event.clientX, event.clientY, magnifierSource);
+    // 位移超过阈值视为拖动选词，取消长按兜底，交给原生选区。
+    if (wordSelectPoint && Math.hypot(event.clientX - wordSelectPoint.x, event.clientY - wordSelectPoint.y) > 12) {
+      clearWordSelect();
+    }
   }, { passive: true });
+
+  // 横向分页模式下容器会横向滚动（scroll-snap），鼠标横向拖拽会被当成翻页、
+  // 抢走文本选区。拖拽起点落在正文上时，临时关闭横向滚动与吸附，让浏览器
+  // 正常产生文本选区；松手后恢复。鼠标翻页走滚轮/边缘点击，不受影响。
+  container.addEventListener('mousedown', (event) => {
+    if (!isPaginatedDisplayMode() || !event.target.closest('.para')) return;
+    document.body.classList.add('text-selecting');
+  });
+  document.addEventListener('mouseup', () => {
+    if (document.body.classList.contains('text-selecting')) document.body.classList.remove('text-selecting');
+  });
+  document.addEventListener('mousedown', (event) => {
+    // 若拖拽起点落在正文外（如页边空白），不抑制滚动，保持正常翻页。
+    if (!isPaginatedDisplayMode()) return;
+    if (event.target.closest('#selection-toolbar') || event.target.closest('.para')) return;
+    document.body.classList.remove('text-selecting');
+  });
 
   // 少数旧版 Android WebView 没有可靠的 Pointer Events，以 Touch Events 兜底。
   if (!window.PointerEvent) {
     container.addEventListener('touchstart', event => {
       const touch = event.touches?.[0];
-      if (touch) startMagnifier(touch.clientX, touch.clientY, event.target);
+      if (touch) armWordSelect(touch.clientX, touch.clientY);
     }, { passive: true });
     container.addEventListener('touchmove', event => {
       const touch = event.touches?.[0];
-      if (!touch || !magnifierGestureActive || (!magnifierTimer && magnifier?.hidden)) return;
-      magnifierSource = document.elementFromPoint(touch.clientX, touch.clientY) || magnifierSource;
-      if (!magnifier?.hidden) updateMagnifier(touch.clientX, touch.clientY, magnifierSource);
+      if (touch && wordSelectPoint && Math.hypot(touch.clientX - wordSelectPoint.x, touch.clientY - wordSelectPoint.y) > 12) {
+        clearWordSelect();
+      }
     }, { passive: true });
   }
 
-  const captureAndroidSelection = (deadline) => {
-    clearTimeout(selectionCaptureTimer);
-    if (showFromSelection({ unlockOnFailure: false })) {
-      selectionGraceUntil = 0;
-      return;
-    }
-    if (Date.now() < deadline) {
-      selectionCaptureTimer = setTimeout(() => captureAndroidSelection(deadline), 60);
-      return;
-    }
-    selectionGraceUntil = 0;
-    setReaderSelectionLocked(false);
-  };
-
-  const finishSelectionGesture = () => {
-    if (!magnifierGestureActive && !magnifierTimer) return;
-    const enteredSelectionLock = readerSelectionLocked;
-    hideMagnifier();
-    if (enteredSelectionLock) {
-      // Chromium 可能在 touchend/pointerup 之后才提交 Selection，轮询一个很短的
-      // 时间窗；一旦捕获成功就停止，失败才释放阅读器锁。
-      selectionGraceUntil = Math.max(selectionGraceUntil, Date.now() + 480);
-      selectionCaptureTimer = setTimeout(() => captureAndroidSelection(selectionGraceUntil), 20);
-    } else {
-      selectionCaptureTimer = setTimeout(() => showFromSelection(), 20);
-    }
-  };
-
-  // 在页面级捕获结束事件：即使手指拖出经文区域，也必须在离屏时关闭放大镜。
-  document.addEventListener('pointerup', finishSelectionGesture, { passive: true, capture: true });
-  document.addEventListener('pointercancel', finishSelectionGesture, { passive: true, capture: true });
-  document.addEventListener('touchend', finishSelectionGesture, { passive: true, capture: true });
-  document.addEventListener('touchcancel', finishSelectionGesture, { passive: true, capture: true });
+  const endSelectionGesture = () => clearWordSelect();
+  document.addEventListener('pointerup', endSelectionGesture, { passive: true, capture: true });
+  document.addEventListener('pointercancel', endSelectionGesture, { passive: true, capture: true });
+  document.addEventListener('touchend', endSelectionGesture, { passive: true, capture: true });
+  document.addEventListener('touchcancel', endSelectionGesture, { passive: true, capture: true });
   document.addEventListener('selectionchange', () => {
     const hasSelection = !!window.getSelection()?.toString().trim();
     clearTimeout(emptySelectionTimer);
+    clearTimeout(selectionShowTimer);
     if (hasSelection) {
       setReaderSelectionLocked(true);
+      // 选区变化时始终刷新快照：长按先选中一个字、再拖动扩展后，
+      // 点查词/查句必须用最新的完整选区，而不是当初那个单字。
+      const snapshot = capture();
+      if (snapshot) {
+        selectionSnapshot = snapshot;
+        if (!toolbar.hidden) {
+          // 操作栏已显示：跟随最新选区重新定位（与系统菜单一致）。
+          position(snapshot);
+        } else if (!magnifierGestureActive) {
+          clearTimeout(selectionShowTimer);
+          selectionShowTimer = setTimeout(() => {
+            if (window.getSelection()?.toString().trim() && toolbar.hidden && !magnifierGestureActive) showFromSelection();
+          }, 120);
+        }
+      }
       return;
     }
     // 自定义操作栏已经出现时，Android 可能临时收起系统选区；此时保持锁定，
@@ -935,6 +1025,14 @@ function setupSelectionToolbar() {
     if (!button || !selectionSnapshot) return;
     const { quote, paragraphID } = selectionSnapshot;
     switch (button.dataset.selectionAction) {
+      case 'lookup':
+        try { window.__tanJingOpenLookupWord?.(quote); }
+        catch (err) { console.error('查词失败:', err); }
+        break;
+      case 'sentence':
+        try { window.__tanJingOpenLookupSentence?.(quote); }
+        catch (err) { console.error('查句失败:', err); }
+        break;
       case 'copy':
         try { await navigator.clipboard.writeText(quote); } catch (_) { /* 系统选择菜单仍可复制 */ }
         break;
@@ -2780,6 +2878,7 @@ function setupSearch() {
   const mobileResults = document.getElementById('mobile-search-results');
   const mobileCount = document.getElementById('mobile-search-count');
   const panelOverlay = document.getElementById('panel-overlay');
+  const lookupPanel = document.getElementById('lookup-panel');
   const lighthouseBtn = document.getElementById('mobile-lighthouse-btn');
   const lighthousePanel = document.getElementById('lighthouse-panel');
   const lighthouseForm = document.getElementById('lighthouse-form');
@@ -2879,6 +2978,138 @@ function setupSearch() {
     if (element._hideTimer) clearTimeout(element._hideTimer);
     element._hideTimer = setTimeout(() => { element.hidden = true; }, PANEL_TRANSITION_MS);
   }
+
+  function openLookupPanel(title, html) {
+    if (!lookupPanel) return;
+    const titleEl = lookupPanel.querySelector('.settings-title');
+    const content = document.getElementById('lookup-content');
+    if (titleEl) titleEl.textContent = title;
+    if (content) content.innerHTML = html;
+    // 逐个关闭其它浮层；任一失败不影响查词面板本身打开。
+    try { closeSettingsPanel(); } catch (_) {}
+    try { closeSidePanel(); } catch (_) {}
+    try { closeLighthousePanel(); } catch (_) {}
+    try { closeNotesPanel(); } catch (_) {}
+    try { closeLibraryPanel(); } catch (_) {}
+    try { closeSettingChoicePanels(); } catch (_) {}
+    showAnimatedPanel(lookupPanel);
+    if (panelOverlay) panelOverlay.hidden = false;
+    document.body.classList.add('reader-panel-open');
+    if (isMobileReader()) setReaderChromeVisible(true);
+  }
+
+  function closeLookupPanel() {
+    if (!lookupPanel) return;
+    hideAnimatedPanel(lookupPanel);
+    const content = document.getElementById('lookup-content');
+    if (content) content.innerHTML = '';
+  }
+
+  // 查词：单 CJK 字查拼音(zdic)，多字查词典术语(glossary+putixia)
+  function openLookupWord(term) {
+    const safe = String(term || '').replace(/\s+/g, ' ').trim();
+    if (!safe) return;
+    const code = safe.codePointAt(0);
+    const isSingleCJK = safe.length === 1 && (
+      (code >= 0x4E00 && code <= 0x9FFF) ||
+      (code >= 0x3400 && code <= 0x4DBF) ||
+      (code >= 0x20000 && code <= 0x2A6DF)
+    );
+    const esc = escapeHtml;
+    if (isSingleCJK) {
+      // pinyin.json 以繁体键收录；简体模式下选字需回退到繁体查拼音。
+      const trad = toTraditional(safe);
+      const pinyin = pinyinMap[safe] || (trad !== safe ? pinyinMap[trad] : '') || '';
+      const zdic = `https://zdic.net/hans/${encodeURIComponent(safe)}`;
+      openLookupPanel('查字', `
+        <div class="lookup-char-row">
+          <div class="lookup-char-col">
+            ${pinyin ? `<div class="lookup-pinyin">${esc(pinyin)}</div>` : ''}
+            <div class="lookup-char">${esc(safe)}</div>
+          </div>
+          <button type="button" class="lookup-speak" data-speak="${esc(safe)}" aria-label="朗读">🔊 朗读</button>
+        </div>
+        ${pinyin ? '' : '<div class="lookup-not-found">本地暂无此字拼音数据。</div>'}
+        <a class="lookup-link" href="${zdic}" target="_blank" rel="noopener">汉典字典查看 ↗</a>`);
+      return;
+    }
+    const data = glossaryMap[safe];
+    const putixia = `https://www.putixia.org/cidian/?word=${encodeURIComponent(safe)}&zh=gb`;
+    openLookupPanel('查词', `
+      <div class="lookup-char-row">
+        <div class="lookup-char-col">
+          ${data?.pinyin ? `<div class="lookup-pinyin">${esc(data.pinyin)}</div>` : ''}
+          <div class="lookup-term">${esc(safe)}</div>
+        </div>
+        <button type="button" class="lookup-speak" data-speak="${esc(safe)}" aria-label="朗读">🔊 朗读</button>
+      </div>
+      ${data ? `<div class="lookup-meaning">${esc(data.meaning)}</div>` : ''}
+      ${data ? '' : '<div class="lookup-not-found">本地暂无此词释义。</div>'}
+      <a class="lookup-link" href="${putixia}" target="_blank" rel="noopener">菩提下词典查看 ↗</a>`);
+  }
+
+  // 查句：按词典术语最长匹配把整句拆开，逐词显示释义
+  function openLookupSentence(text) {
+    const safe = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!safe) return;
+    const esc = escapeHtml;
+    const terms = Object.keys(glossaryMap).sort((a, b) => b.length - a.length);
+    const pattern = terms.length ? new RegExp(`(${terms.map(escapeRegex).join('|')})`, 'g') : null;
+    const matched = [];
+    let body = '';
+    if (pattern) {
+      let last = 0;
+      let m;
+      while ((m = pattern.exec(safe))) {
+        const term = m[0];
+        body += esc(safe.slice(last, m.index)) + `<b class="lookup-hit">${esc(term)}</b>`;
+        if (!matched.some(x => x.term === term)) matched.push({ term, data: glossaryMap[term] });
+        last = m.index + term.length;
+      }
+      body += esc(safe.slice(last));
+    } else {
+      body = esc(safe);
+    }
+    const list = matched.map(({ term, data }) => `
+      <div class="lookup-item">
+        <div class="lookup-item-term">${esc(term)}</div>
+        ${data?.pinyin ? `<div class="lookup-item-pinyin">${esc(data.pinyin)}</div>` : ''}
+        ${data?.meaning ? `<div class="lookup-item-meaning">${esc(data.meaning)}</div>` : ''}
+      </div>`).join('');
+    const putixia = `https://www.putixia.org/cidian/?word=${encodeURIComponent(safe)}&zh=gb`;
+    const html = `
+      <div class="lookup-char-row">
+        <div class="lookup-section-title">原文</div>
+        <button type="button" class="lookup-speak" data-speak="${esc(safe)}" aria-label="朗读">🔊 朗读</button>
+      </div>
+      <div class="lookup-section"><div class="lookup-sentence">${body}</div></div>
+      ${list ? `<div class="lookup-section"><div class="lookup-section-title">拆词释义</div>${list}</div>` : ''}
+      <div class="lookup-section"><a class="lookup-link" href="${putixia}" target="_blank" rel="noopener">菩提下词典搜索整句 ↗</a></div>`;
+    openLookupPanel('查句', html);
+  }
+
+  // 暴露给选词操作栏调用（工具栏与面板分属不同闭包）
+  window.__tanJingOpenLookupWord = openLookupWord;
+  window.__tanJingOpenLookupSentence = openLookupSentence;
+  window.__tanJingCloseLookupPanel = closeLookupPanel;
+
+  const lookupBackBtn = document.getElementById('lookup-back');
+  lookupBackBtn?.addEventListener('click', closeLookupPanel);
+
+  // 朗读：用浏览器语音读出查到的字/词。
+  const speakLookupText = (text) => {
+    if (!text || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+  };
+  const lookupContentEl = document.getElementById('lookup-content');
+  lookupContentEl?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-speak]');
+    if (btn) speakLookupText(btn.getAttribute('data-speak'));
+  });
 
   function closeSettingChoicePanels() {
     hideAnimatedPanel(pageModePanel);
@@ -4280,6 +4511,7 @@ function setupSearch() {
       closeLibraryPanel();
       closeSettingsPanel();
       closeNotesPanel();
+      closeLookupPanel();
       document.body.classList.remove('reader-panel-open');
       panelOverlay.hidden = true;
       if (isMobileReader()) setReaderChromeVisible(true);
@@ -4488,6 +4720,26 @@ function highlightSearchResultPage(fold, currentResult, visibleQuery, searchResu
 
     markTextRangesInElement(element, ranges);
   });
+}
+
+// 在元素内查找 text 的全部非重叠出现，并包裹为 <mark class=className>。
+// 供划线(reader-note-highlight)使用；搜索高亮走 markTextRangesInElement。
+function markTextInElement(el, text, className, caseSensitive = false) {
+  if (!el || !text) return false;
+  const query = String(text);
+  if (!query) return false;
+  const haystack = searchableTextInElement(el);
+  const ranges = [];
+  const pushAll = (hay, q) => {
+    let idx = hay.indexOf(q);
+    while (idx !== -1) {
+      ranges.push({ start: idx, length: q.length, className });
+      idx = hay.indexOf(q, idx + q.length);
+    }
+  };
+  if (caseSensitive) pushAll(haystack, query);
+  else pushAll(haystack.toLocaleLowerCase(), query.toLocaleLowerCase());
+  return markTextRangesInElement(el, ranges);
 }
 
 function markTextRangesInElement(el, ranges) {
