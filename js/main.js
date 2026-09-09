@@ -15,7 +15,6 @@ let dunhuangData = null; // dunhuang.json 或 dunhuang_pinyin.json
 let glossaryMap = {};    // term → { pinyin, meaning }
 let pinyinMap = {};      // char → pinyin
 let tooltip = null;      // tooltip DOM element
-let longPressTimer = null;
 let isFlipping = false;
 let compareMode = false; // 对照模式
 let readerEdition = 'zongbao'; // 当前单本阅读版本
@@ -648,7 +647,11 @@ function applyReaderNoteHighlights() {
     const query = candidates.find((value) => value && searchableTextInElement(paragraph).includes(value));
     if (query) {
       const existingMarks = new Set(paragraph.querySelectorAll('mark.reader-note-highlight'));
-      markTextInElement(paragraph, query, 'reader-note-highlight', false);
+      markTextRangesInElement(paragraph, [{
+        start: searchableTextInElement(paragraph).indexOf(query),
+        length: query.length,
+        className: 'reader-note-highlight'
+      }]);
       paragraph.querySelectorAll('mark.reader-note-highlight').forEach(mark => {
         if (!existingMarks.has(mark)) {
           mark.dataset.highlightQuote = note.quote;
@@ -722,6 +725,35 @@ function setupHighlightActions() {
   });
 }
 
+let readerFeedbackTimer;
+function readerFeedback(message) {
+  let status = document.getElementById('reader-feedback');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'reader-feedback';
+    status.setAttribute('role', 'status');
+    document.body.append(status);
+  }
+  status.textContent = message;
+  status.hidden = false;
+  clearTimeout(readerFeedbackTimer);
+  readerFeedbackTimer = setTimeout(() => { status.hidden = true; }, 3000);
+}
+
+async function copyReaderText(text) {
+  try {
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return; }
+  } catch (_) { /* 局域网 HTTP 与权限拒绝时使用同步复制兜底。 */ }
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.style.cssText = 'position:fixed;left:0;top:0;opacity:0;font-size:16px';
+  document.body.append(field);
+  try {
+    field.select();
+    if (!document.execCommand('copy')) throw new Error('copy unavailable');
+  } finally { field.remove(); }
+}
+
 function setupSelectionToolbar() {
   const container = document.querySelector('.scroll-container');
   const toolbar = document.getElementById('selection-toolbar');
@@ -729,6 +761,11 @@ function setupSelectionToolbar() {
   const magnifierContent = magnifier?.querySelector('.selection-magnifier-content');
   if (!container || !toolbar || window._selectionToolbarInstalled) return;
   window._selectionToolbarInstalled = true;
+  const stopSpeech = document.getElementById('reader-speech-stop');
+  stopSpeech.addEventListener('click', () => {
+    window.speechSynthesis?.cancel();
+    stopSpeech.hidden = true;
+  });
   let selectionSnapshot = null;
   let speech = null;
   let magnifierTimer = null;
@@ -843,6 +880,10 @@ function setupSelectionToolbar() {
   };
 
   const hide = ({ clearSelection = false } = {}) => {
+    hideMagnifier();
+    clearWordSelect();
+    clearTimeout(selectionShowTimer);
+    document.body.classList.remove('text-selecting');
     clearTimeout(selectionCaptureTimer);
     clearTimeout(emptySelectionTimer);
     selectionCaptureTimer = null;
@@ -857,17 +898,22 @@ function setupSelectionToolbar() {
 
   const capture = () => {
     const selection = window.getSelection();
-    const text = selection?.toString().replace(/\s+/g, ' ').trim() || '';
+    let text = selection?.toString().replace(/\s+/g, ' ').trim() || '';
     if (!selection || selection.rangeCount === 0 || !text) return null;
     const range = selection.getRangeAt(0);
     const start = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer;
     const end = range.endContainer.nodeType === Node.TEXT_NODE ? range.endContainer.parentElement : range.endContainer;
     if (!start?.closest?.('.scroll-container') || !end?.closest?.('.scroll-container')) return null;
+    if (start.closest('.compare-reader-pane') !== end.closest('.compare-reader-pane')) return null;
+    const fragment = range.cloneContents();
+    fragment.querySelectorAll('rt').forEach(node => node.remove());
+    text = fragment.textContent.trim();
+    if (!text) return null;
     const paragraph = start.closest('.para[data-para]') || end.closest('.para[data-para]');
     const rects = Array.from(range.getClientRects()).filter(rect => rect.width || rect.height);
     if (!rects.length) return null;
     return {
-      quote: text.slice(0, 1000),
+      quote: text,
       paragraphID: paragraph?.dataset.para || currentReadingParagraphID() || '',
       rect: rects.reduce((result, rect) => ({
         left: Math.min(result.left, rect.left),
@@ -989,7 +1035,7 @@ function setupSelectionToolbar() {
   document.addEventListener('touchend', endSelectionGesture, { passive: true, capture: true });
   document.addEventListener('touchcancel', endSelectionGesture, { passive: true, capture: true });
   document.addEventListener('selectionchange', () => {
-    const hasSelection = !!window.getSelection()?.toString().trim();
+    const hasSelection = !!capture();
     clearTimeout(emptySelectionTimer);
     clearTimeout(selectionShowTimer);
     if (hasSelection) {
@@ -1034,12 +1080,16 @@ function setupSelectionToolbar() {
         catch (err) { console.error('查句失败:', err); }
         break;
       case 'copy':
-        try { await navigator.clipboard.writeText(quote); } catch (_) { /* 系统选择菜单仍可复制 */ }
+        try { await copyReaderText(quote); readerFeedback('已复制经文'); }
+        catch (_) { readerFeedback('复制失败，请使用浏览器的复制功能'); return; }
         break;
       case 'highlight': {
         const highlights = loadReaderHighlights();
         const duplicate = highlights.some(item => item.quote === quote && item.paragraphID === paragraphID);
-        if (!duplicate) writeStorage(READER_HIGHLIGHTS_KEY, JSON.stringify([{ id: `${Date.now()}`, quote, paragraphID }, ...highlights].slice(0, 1000)));
+        if (!duplicate && !writeStorage(READER_HIGHLIGHTS_KEY, JSON.stringify([{ id: `${Date.now()}`, quote, paragraphID }, ...highlights]))) {
+          readerFeedback('保存失败，请检查浏览器存储空间'); return;
+        }
+        readerFeedback(duplicate ? '这段经文已划线' : '已保存划线');
         applyReaderNoteHighlights();
         syncNativePageCurl();
         break;
@@ -1052,8 +1102,8 @@ function setupSelectionToolbar() {
         const text = `《六祖坛经》\n${quote}`;
         try {
           if (navigator.share) await navigator.share({ title: '六祖坛经书摘', text });
-          else await navigator.clipboard.writeText(text);
-        } catch (_) { /* 用户取消系统分享 */ }
+          else { await copyReaderText(text); readerFeedback('书摘已复制，可粘贴分享'); }
+        } catch (error) { if (error.name !== 'AbortError') readerFeedback('分享失败，请重试'); }
         break;
       }
       case 'ask': {
@@ -1069,20 +1119,35 @@ function setupSelectionToolbar() {
       case 'speak':
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
-          if (!speech || speech.text !== quote) {
+          {
             speech = new SpeechSynthesisUtterance(quote);
             speech.lang = 'zh-CN';
             speech.rate = 0.9;
+            const stop = document.getElementById('reader-speech-stop');
+            if (stop) stop.hidden = false;
+            speech.onend = () => { if (stop) stop.hidden = true; speech = null; };
+            speech.onerror = () => { if (stop) stop.hidden = true; speech = null; readerFeedback('朗读已停止或当前设备无法朗读'); };
             window.speechSynthesis.speak(speech);
-          } else speech = null;
+          }
+        } else {
+          readerFeedback('当前浏览器不支持朗读');
         }
         break;
     }
-    hide({ clearSelection: button.dataset.selectionAction !== 'note' });
+    hide({ clearSelection: true });
   });
 
   document.addEventListener('pointerdown', event => {
     if (!event.target.closest('#selection-toolbar') && !event.target.closest('.para')) hide();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hide({ clearSelection: true });
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) hide({ clearSelection: true });
+  });
+  container.addEventListener('contextmenu', event => {
+    if (capture()) { event.preventDefault(); showFromSelection(); }
   });
 
   // 测试与原生容器共用的受控入口；普通用户流程仍由系统长按选区触发。
@@ -2292,6 +2357,7 @@ function setupScroll() {
       e.preventDefault();
       return;
     }
+    if (displayMode === 'scroll') return;
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     e.preventDefault();
     if (isFlipping) return;
@@ -2301,6 +2367,7 @@ function setupScroll() {
   // 键盘左右箭头翻页（搜索面板开启时跳过）
   document.addEventListener('keydown', e => {
     if (readerSelectionLocked) return;
+    if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
     const searchOpen = document.getElementById('search-panel') && !document.getElementById('search-panel').hidden;
     if (searchOpen) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
@@ -2644,22 +2711,11 @@ function setupTermInteraction() {
     }
   }, true);
 
-  // 移动端：touchstart 长按
-  container.addEventListener('touchstart', e => {
+  // 词卡只响应轻点，长按统一留给选词，避免两个浮层争抢同一手势。
+  container.addEventListener('click', e => {
     const target = e.target.closest('.term');
-    if (!target) return;
-    longPressTimer = setTimeout(() => {
-      e.preventDefault();
-      showTooltip(target);
-    }, 400);
-  }, { passive: false });
-
-  container.addEventListener('touchend', () => {
-    clearTimeout(longPressTimer);
-  });
-
-  container.addEventListener('touchmove', () => {
-    clearTimeout(longPressTimer);
+    if (!target || readerSelectionLocked || window.getSelection()?.toString().trim()) return;
+    showTooltip(target);
   });
 
   // 点击其他区域关闭 tooltip
@@ -3094,7 +3150,12 @@ function setupSearch() {
   window.__tanJingCloseLookupPanel = closeLookupPanel;
 
   const lookupBackBtn = document.getElementById('lookup-back');
-  lookupBackBtn?.addEventListener('click', closeLookupPanel);
+  lookupBackBtn?.addEventListener('click', () => {
+    closeLookupPanel();
+    if (panelOverlay) panelOverlay.hidden = true;
+    document.body.classList.remove('reader-panel-open');
+    if (isMobileReader()) setReaderChromeVisible(true);
+  });
 
   // 朗读：用浏览器语音读出查到的字/词。
   const speakLookupText = (text) => {
@@ -4567,6 +4628,18 @@ function setupSearch() {
   };
   lighthouseInput?.addEventListener('input', updateLighthouseSubmit);
   updateLighthouseSubmit();
+  const prepareLighthouseQuestion = async () => {
+    const question = lighthouseInput?.value.trim() || '请解释这段经文，并谈谈如何在生活中实践。';
+    const quote = window.__tanJingLighthouseQuote || '';
+    const text = quote ? `《六祖坛经》\n“${quote}”\n\n${question}` : question;
+    try {
+      await copyReaderText(text);
+      if (lighthouseStatus) lighthouseStatus.textContent = '提问已复制。点击“打开灯塔”，粘贴后发送；关闭新标签页即可回到阅读。';
+    } catch (_) {
+      if (lighthouseStatus) lighthouseStatus.textContent = '自动复制失败，请手动选择经文和问题复制，再打开灯塔。';
+    }
+  };
+  document.getElementById('lighthouse-copy')?.addEventListener('click', prepareLighthouseQuestion);
   lighthouseForm?.addEventListener('submit', event => {
     event.preventDefault();
     const question = lighthouseInput?.value.trim() || '';
@@ -4574,7 +4647,7 @@ function setupSearch() {
       lighthouseInput?.focus();
       return;
     }
-    if (lighthouseStatus) lighthouseStatus.textContent = '灯塔对话能力正在接入';
+    prepareLighthouseQuestion();
   });
   if (libraryBtn && libraryPanel) {
     libraryBtn.addEventListener('click', toggleLibraryPanel);
@@ -5075,10 +5148,10 @@ function setupDailyQuote(deps) {
     else { card.hidden = false; card.classList.add('open'); }
     if (overlay) overlay.hidden = false;
   }
-  function close() {
+  function close({ keepOverlay = false } = {}) {
     if (hideAnimatedPanel) hideAnimatedPanel(card);
     else { card.classList.remove('open'); card.hidden = true; }
-    if (overlay) overlay.hidden = true;
+    if (overlay && !keepOverlay) overlay.hidden = true;
   }
   const isOpen = () => !card.hidden && card.classList.contains('open');
   // 桌面顶栏 & 移动端签文按钮：已开则关闭，否则打开（切换）
@@ -5092,6 +5165,7 @@ function setupDailyQuote(deps) {
   // 点击其他底部 tabbar 按钮时自动关闭签文弹窗
   document.querySelectorAll('.mobile-tabbar-btn').forEach(b => {
     if (b === mobileBtn) return;
-    b.addEventListener('click', close);
+    // 其他 tab 已打开自己的面板，不能撤掉它刚显示的共享遮罩。
+    b.addEventListener('click', () => close({ keepOverlay: true }));
   });
 }

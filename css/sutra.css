@@ -765,6 +765,33 @@ button.icon-close-button .sf-icon--close {
 }
 
 /* 正文搜索高亮 */
+.lighthouse-handoff { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.lighthouse-handoff a, .lighthouse-handoff button, .library-lighthouse-view > a {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 16px; min-height: 44px; box-sizing: border-box;
+  border: 1px solid rgba(138,96,43,.2); border-radius: 18px;
+  background: rgba(184,155,114,.12); color: #795326;
+  font: inherit; text-decoration: none;
+}
+
+#reader-feedback, #reader-speech-stop {
+  position: fixed;
+  z-index: 5000;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100vw - 40px);
+  padding: 12px 18px;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 24px;
+  background: #524b40;
+  color: #fff;
+  font: 14px/1.5 sans-serif;
+}
+#reader-feedback { pointer-events: none; }
+#reader-speech-stop { bottom: calc(165px + env(safe-area-inset-bottom, 0px)); }
+#reader-feedback[hidden], #reader-speech-stop[hidden] { display: none; }
+
 mark.search-highlight {
   background: rgba(184, 155, 114, 0.30);
   color: var(--ink-main);
@@ -1059,6 +1086,15 @@ mark.reader-note-highlight {
 .setting-actions { text-align:right; margin-top:0.6rem; }
 
 /* ---- 查词/查句面板 ---- */
+#lookup-panel {
+  display: flex;
+  flex-direction: column;
+  height: auto !important;
+  max-height: calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 140px) !important;
+}
+#lookup-panel[hidden] { display: none; }
+#lookup-panel .settings-header { display: flex; flex-shrink: 0; }
+#lookup-panel .settings-body { height: auto; min-height: 0; overflow-y: auto; }
 .lookup-char-row { display:flex; align-items:center; justify-content:center; gap:0.8rem; }
 .lookup-char-col { display:flex; flex-direction:column; align-items:center; }
 .lookup-char { font-size:2.5rem; line-height:1.2; color:var(--accent-gold); text-align:center; }

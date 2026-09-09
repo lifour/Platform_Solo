@@ -76,6 +76,8 @@
     </div>
   </div>
 
+  <div id="reader-feedback" role="status" hidden></div>
+  <button id="reader-speech-stop" type="button" hidden>停止朗读</button>
   <div id="selection-toolbar" class="selection-toolbar" role="toolbar" aria-label="选中文本操作" hidden>
     <button type="button" data-selection-action="lookup"><span class="selection-action-icon sf-icon sf-icon--search" aria-hidden="true"></span><span>查词</span></button>
     <button type="button" data-selection-action="sentence"><span class="selection-action-icon sf-icon sf-icon--text" aria-hidden="true"></span><span>查句</span></button>
@@ -265,7 +267,7 @@
       <span class="library-lighthouse-mark sf-icon sf-icon--sparkles" aria-hidden="true"></span>
       <h2>灯塔</h2>
       <p>照见本心，问见自性</p>
-      <button type="button" disabled>AI 对话即将接入</button>
+      <a href="https://onemooring.xyz/" target="_blank" rel="noopener noreferrer">进入心灵灯塔 ↗</a>
     </section>
     <section class="library-search-view" hidden aria-label="搜索书库">
       <h2>搜索</h2>
@@ -306,8 +308,12 @@
         <input id="lighthouse-input" type="text" maxlength="500" placeholder="问一问，照见本心" autocomplete="off">
         <button id="lighthouse-submit" type="submit" aria-label="向灯塔提问" disabled><span aria-hidden="true">↑</span></button>
       </form>
-      <p class="lighthouse-source">参照《六祖坛经》原文，结合所选经文生成回答</p>
+      <p class="lighthouse-source">复制经文与问题，前往心灵灯塔粘贴提问</p>
       <p id="lighthouse-status" class="lighthouse-status" role="status" aria-live="polite"></p>
+      <div class="lighthouse-handoff">
+        <button id="lighthouse-copy" type="button">复制经文与问题</button>
+        <a href="https://onemooring.xyz/" target="_blank" rel="noopener noreferrer">打开灯塔 ↗</a>
+      </div>
     </div>
   </aside>
 
