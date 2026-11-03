@@ -33,6 +33,12 @@ const STORAGE_KEY = 'sutra_scroll_pos';
 async function fetchJSON(url, options) {
   const response = await fetch(url, options);
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  // 路径解析错误时 SPA fallback 会用 200 返回 index.html；只拦 HTML，
+  // 不放宽也不收紧其它 MIME（避免影响 Capacitor/代理等自定义服务器）。
+  const contentType = response.headers.get('content-type') || '';
+  if (/text\/html/i.test(contentType)) {
+    throw new Error(`${url}: 期望 JSON，实际返回 ${contentType}`);
+  }
   return response.json();
 }
 
@@ -5161,7 +5167,10 @@ function setupDailyQuote(deps) {
   if (mobileBtn) mobileBtn.addEventListener('click', toggle);
   // 刷新（换一句）：保持打开，抽下一条
   if (refreshBtn) refreshBtn.addEventListener('click', show);
-  if (overlay) overlay.addEventListener('click', close);
+  // 与其他弹窗一致：点击空白遮罩即关闭。必须监听 pointerdown，
+  // 因为共享遮罩的通用关闭逻辑在 pointerdown 阶段就会把遮罩隐藏，
+  // 之后再来的 click 事件不会再落到遮罩上。
+  if (overlay) overlay.addEventListener('pointerdown', close);
   // 点击其他底部 tabbar 按钮时自动关闭签文弹窗
   document.querySelectorAll('.mobile-tabbar-btn').forEach(b => {
     if (b === mobileBtn) return;

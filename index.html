@@ -2,6 +2,10 @@
 <html lang="zh-Hans">
 <head>
   <meta charset="UTF-8">
+  <!-- 应用只部署在域名根目录；用根路径作为相对 URL 基准，
+       避免从 /some/path/ 之类的地址打开时 data/*.json 被解析到子路径下，
+       被 SPA fallback 返回 index.html 而导致「经文加载失败」。 -->
+  <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="六祖坛经·阅藏 — 经折装数字阅读器。阅读，即是修行。">
   <meta name="theme-color" content="#F3EFE0">
